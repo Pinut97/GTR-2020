@@ -20,6 +20,7 @@ namespace GTR {
 		bool deferred;
 		bool show_GBuffers;
 		FBO* fbo;
+		FBO* ssao_fbo;
 
 		//add here your functions
 		void renderDeferred(Camera* camera);
@@ -39,5 +40,7 @@ namespace GTR {
 		//to render one mesh given its material and transformation matrix
 		void renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Material* material, Camera* camera);
 	};
+
+	std::vector<Vector3> generateSpherePoints(int num, float radius, bool hemi);
 
 };

@@ -257,7 +257,12 @@ void Renderer::renderDeferred(Camera* camera)
 	this->deferred = true;
 	this->show_GBuffers = false;
 
+	//debug purposes
+	bool use_ao = true;
+	bool use_light = false;
+
 	Shader* second_pass = NULL;
+	Shader* ao_shader = NULL;
 
 	//create fbo in case it hasn't been created before
 	if (!this->fbo)
@@ -283,91 +288,136 @@ void Renderer::renderDeferred(Camera* camera)
 		renderPrefab(e->model, e->pPrefab, camera);
 	}
 
-	this->fbo->unbind();
-
-	//second pass - light
-
-	glDisable(GL_BLEND);
-	glDisable(GL_DEPTH_TEST);
-
-	//glClearColor(0.0, 0.0, 0.0, 1.0);
-	glClearColor(0.1, 0.1, 0.1, 1.0);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-	Mesh* quad = Mesh::getQuad();
-	second_pass = Shader::Get("deferred_pospo");
-	second_pass->enable();
-
-	//camera pass
-	second_pass->setUniform("u_camera_pos", camera->eye);
+	//calculate the inverse of the viewprojection for future passes (ao and light pass)
 	Matrix44 inverse_matrix = camera->viewprojection_matrix;
 	inverse_matrix.inverse();
-	second_pass->setUniform("u_inverse_viewprojection", inverse_matrix);
-	second_pass->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
 
-	//texture pass
-	second_pass->setUniform("u_color_texture", this->fbo->color_textures[0], 0);
-	second_pass->setUniform("u_normal_texture", this->fbo->color_textures[1], 1);
-	second_pass->setUniform("u_metal_roughness_texture", this->fbo->color_textures[2], 2);
-	second_pass->setUniform("u_depth_texture", this->fbo->depth_texture, 3);
+	this->fbo->unbind();
 
-	//lights pass
-	second_pass->setUniform("u_ambient_light", Scene::getInstance()->ambientLight);
+	//AMBIENT OCCLUSION pass
+	
+	if (use_ao) {
 
-	bool firstLight = false;
+		std::vector<Vector3> points(64);
+		points = GTR::generateSpherePoints(64, 1.0f, false);
 
-	//multipass
-	for (size_t i = 0; i < Scene::getInstance()->lightEntities.size(); i++)	//pass for all lights
-	{
-		glDisable(GL_DEPTH_TEST);
-		Light* light = Scene::getInstance()->lightEntities.at(i);
-		if (!light->visible)
-			continue;
-
-		if (!firstLight) {
-			firstLight = true;
-			glDisable(GL_BLEND);
-		}
-		else {
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_ONE, GL_ONE);
-			glBlendEquation(GL_FUNC_ADD);
-			assert(glGetError() == GL_NO_ERROR);
-			//second_pass->setUniform("u_ambient_light", 0.0f);
-		}
-
-		second_pass->setUniform("u_light_type", light->light_type);
-		second_pass->setUniform("u_light_position", light->model.getTranslation());
-		second_pass->setUniform("u_light_intensity", light->intensity);
-		second_pass->setUniform("u_light_color", light->color);
-		second_pass->setUniform("u_light_maxdist", light->maxDist);
-		second_pass->setUniform("u_light_direction", light->model.frontVector());
-		second_pass->setUniform("u_light_spot_cosine", (float)cos(DEG2RAD * light->angleCutoff));
-		second_pass->setUniform("u_light_spot_exponent", light->spotExponent);
-
-		if (light->shadowMap)
+		if (!this->ssao_fbo)
 		{
-			second_pass->setUniform("u_is_cascade", light->is_cascade);
-			if (light->light_type == lightType::SPOT || !light->is_cascade)
-				second_pass->setUniform("u_shadow_viewprojection", light->camera->viewprojection_matrix);
-			else if (light->light_type == lightType::DIRECTIONAL && light->is_cascade)
-				second_pass->setMatrix44Array("u_shadow_viewprojection_array", light->shadow_viewprojection, 4);
-			second_pass->setUniform("u_shadow_map", (light->shadowMap) ? light->shadowMap : Texture::getWhiteTexture(), 4);
+			this->ssao_fbo = new FBO();
+			this->ssao_fbo->create(width, height);
 		}
 
-		quad->render(GL_TRIANGLES);	//render with blending for each light
-	}
+		this->ssao_fbo->bind();
 
-	//in case there is no lights, render the quad
-	if (Scene::getInstance()->lightEntities.empty())
+		Mesh* quad = Mesh::getQuad();
+
+		glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		ao_shader = Shader::Get("ssao");
+		ao_shader->enable();
+
+		ao_shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+		ao_shader->setUniform("u_inverse_viewprojection", inverse_matrix);
+		ao_shader->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+		ao_shader->setUniform3Array("u_points", (float*)&points[0], points.size());
+
+		ao_shader->setTexture("u_depth_texture", this->fbo->depth_texture, 0);	//pass the depth buffer calculated in the gbuffers
+
+		//glViewport(0, 0, 300, 300);
+		//this->ssao_fbo->color_textures[0]->toViewport();
+
 		quad->render(GL_TRIANGLES);
+		
+		ao_shader->disable();
+		
+	}
+	
+	
+	//second pass - light
 
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
+	if (use_light)
+	{
+		glDisable(GL_BLEND);
+		glDisable(GL_DEPTH_TEST);
 
-	//renderLights(camera);
+		//glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClearColor(0.1, 0.1, 0.1, 1.0);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-	second_pass->disable();
+		Mesh* quad = Mesh::getQuad();
+		second_pass = Shader::Get("deferred_pospo");
+		second_pass->enable();
+
+		//camera pass
+		second_pass->setUniform("u_camera_pos", camera->eye);
+		second_pass->setUniform("u_inverse_viewprojection", inverse_matrix);
+		second_pass->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+
+		//texture pass
+		second_pass->setUniform("u_color_texture", this->fbo->color_textures[0], 0);
+		second_pass->setUniform("u_normal_texture", this->fbo->color_textures[1], 1);
+		second_pass->setUniform("u_metal_roughness_texture", this->fbo->color_textures[2], 2);
+		second_pass->setUniform("u_depth_texture", this->fbo->depth_texture, 3);
+
+		//lights pass
+		second_pass->setUniform("u_ambient_light", Scene::getInstance()->ambientLight);
+
+		bool firstLight = false;
+
+		//multipass
+		for (size_t i = 0; i < Scene::getInstance()->lightEntities.size(); i++)	//pass for all lights
+		{
+			glDisable(GL_DEPTH_TEST);
+			Light* light = Scene::getInstance()->lightEntities.at(i);
+			if (!light->visible)
+				continue;
+
+			if (!firstLight) {
+				firstLight = true;
+				glDisable(GL_BLEND);
+			}
+			else {
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_ONE, GL_ONE);
+				glBlendEquation(GL_FUNC_ADD);
+				assert(glGetError() == GL_NO_ERROR);
+				//second_pass->setUniform("u_ambient_light", 0.0f);
+			}
+
+			second_pass->setUniform("u_light_type", light->light_type);
+			second_pass->setUniform("u_light_position", light->model.getTranslation());
+			second_pass->setUniform("u_light_intensity", light->intensity);
+			second_pass->setUniform("u_light_color", light->color);
+			second_pass->setUniform("u_light_maxdist", light->maxDist);
+			second_pass->setUniform("u_light_direction", light->model.frontVector());
+			second_pass->setUniform("u_light_spot_cosine", (float)cos(DEG2RAD * light->angleCutoff));
+			second_pass->setUniform("u_light_spot_exponent", light->spotExponent);
+
+			if (light->shadowMap)
+			{
+				second_pass->setUniform("u_is_cascade", light->is_cascade);
+				if (light->light_type == lightType::SPOT || !light->is_cascade)
+					second_pass->setUniform("u_shadow_viewprojection", light->camera->viewprojection_matrix);
+				else if (light->light_type == lightType::DIRECTIONAL && light->is_cascade)
+					second_pass->setMatrix44Array("u_shadow_viewprojection_array", light->shadow_viewprojection, 4);
+				second_pass->setUniform("u_shadow_map", (light->shadowMap) ? light->shadowMap : Texture::getWhiteTexture(), 4);
+			}
+
+			quad->render(GL_TRIANGLES);	//render with blending for each light
+		}
+
+		//in case there is no lights, render the quad
+		if (Scene::getInstance()->lightEntities.empty())
+			quad->render(GL_TRIANGLES);
+
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_BLEND);
+
+		//renderLights(camera);
+
+		second_pass->disable();
+	}
 
 	if (show_GBuffers) {
 		glViewport(0, height * 0.5, width * 0.5, height * 0.5);
@@ -428,7 +478,10 @@ void Renderer::renderMeshInDeferred(const Matrix44 model, Mesh* mesh, GTR::Mater
 	shader->setUniform("u_color", material->color);
 
 	shader->setUniform("u_color_texture", color_texture ? color_texture : Texture::getWhiteTexture(), 0);
-	shader->setUniform("u_metal_roughness_texture", metal_roughness_texture ? metal_roughness_texture : Texture::getBlackTexture(), 1);
+	Uint8 data[3] = { 1, 0, 0 };
+	Texture* occlusion_metal_roughness = new Texture(1, 1, GL_RGB, GL_UNSIGNED_BYTE, true, (Uint8*)data);
+	shader->setUniform("u_metal_roughness_texture", metal_roughness_texture ? metal_roughness_texture : occlusion_metal_roughness, 1);
+	Texture::getBlackTexture();
 
 	mesh->render(GL_TRIANGLES);
 
@@ -466,4 +519,30 @@ void Renderer::renderLights(Camera* camera)
 		sh->disable();
 
 	}
+}
+
+std::vector<Vector3> GTR::generateSpherePoints(int num,
+	float radius, bool hemi)
+{
+	std::vector<Vector3> points;
+	points.resize(num);
+	for (int i = 0; i < num; i += 3)
+	{
+		Vector3& p = points[i];
+		float u = random();
+		float v = random();
+		float theta = u * 2.0 * PI;
+		float phi = acos(2.0 * v - 1.0);
+		float r = cbrt(random() * 0.9 + 0.1) * radius;
+		float sinTheta = sin(theta);
+		float cosTheta = cos(theta);
+		float sinPhi = sin(phi);
+		float cosPhi = cos(phi);
+		p.x = r * sinPhi * cosTheta;
+		p.y = r * sinPhi * sinTheta;
+		p.z = r * cosPhi;
+		if (hemi && p.z < 0)
+			p.z *= -1.0;
+	}
+	return points;
 }

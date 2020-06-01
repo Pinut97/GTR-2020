@@ -7,6 +7,7 @@ light basic.vs light.fs
 deform quad.vs deform.fs
 deferred basic.vs deferred.fs
 deferred_pospo quad.vs deferred_pospo.fs
+ssao quad.vs ssao.fs
 
 \basic.vs
 
@@ -511,8 +512,7 @@ void main()
 	vec2 uv = gl_FragCoord.xy * u_iRes.xy;
 
 	//take color value from texture color	
-	vec3 color = texture2D( u_color_texture, uv ).xyz;
-	//color = degamma( color );
+	vec3 color_texture = texture2D( u_color_texture, uv ).xyz;
 
 	//take the normal and the depth from the normal and depth texture
 	//Normal has to be converted to clip space again
@@ -528,9 +528,11 @@ void main()
 	//read metal and roughness values from the metal and roughness texture
 	float metal = texture2D( u_metal_roughness_texture, uv ).z;
 	float roughness = texture2D( u_metal_roughness_texture, uv ).y;
+	float ao = texture2D( u_metal_roughness_texture, uv ).x;
+	vec3 aux = texture2D( u_metal_roughness_texture, uv ).xyz;
 
 	//calculate f0 reflection based on the color and metalness
-	vec3 f0 = color * metal + (vec3( 0.5 ) * ( 1.0 - metal ));
+	vec3 f0 = color_texture * metal + (vec3( 0.5 ) * ( 1.0 - metal ));
 
 	//normalize the Light, Vision and Half vector and compute some dot products
 	vec3 L = normalize( u_light_position - worldpos );
@@ -543,8 +545,8 @@ void main()
 
 	//calulate the specular and difusse
 	vec3 ks = specularBRDF( roughness, f0, NdotH, NdotV, NdotL, LdotH );
-	vec3 diffuse = ( 1.0 - metal ) * color;	//the most metalness the less diffuse color
-	vec3 kd = diffuse * NdotL * color;
+	vec3 diffuse = ( 1.0 - metal ) * color_texture;	//the most metalness the less diffuse color
+	vec3 kd = diffuse * NdotL;
 	vec3 direct = kd + ks;
 
 	float intensity = u_light_intensity;
@@ -558,20 +560,20 @@ void main()
 	if(u_light_type == 0)	//directional light
 	{
 		vec3 directionalVector = normalize( u_light_position );
-		direct = ks + diffuse * clamp( dot( N, directionalVector ), 0.0, 1.0 ) * color;
+		direct = ks + diffuse * clamp( dot( N, directionalVector ), 0.0, 1.0 );
 		shadowFactor = computeShadowFactor( u_light_type, worldpos );
-		finalColor = direct * intensity * shadowFactor * light_color;
+		finalColor = direct * color_texture *  intensity * shadowFactor * light_color;
 	}
 	else if(u_light_type == 1)	//point light
 	{
-		finalColor = direct * intensity * light_color * att_factor;
+		finalColor = direct * color_texture * intensity * light_color * att_factor * ao;
 	}
 	else if(u_light_type == 2)	//spot light
 	{
 		//determine if it's inside light's cone
 		direct *= spotDirection( u_light_spot_cosine, u_light_direction, u_light_position, worldpos, N, u_light_color, u_light_spot_exponent, u_light_intensity );
 		shadowFactor = computeShadowFactor( u_light_type, worldpos );
-		finalColor = direct * shadowFactor * intensity * light_color * att_factor;
+		finalColor = direct * color_texture * shadowFactor * intensity * light_color * att_factor * ao;
 	}
 
 	//finalColor += u_ambient_light;
@@ -579,8 +581,8 @@ void main()
 	if(depth == 1)
 		discard;
 
-	finalColor = gamma( finalColor );
-	FragColor = vec4( finalColor , 1.0 );
+	finalColor = gamma( aux );
+	FragColor = vec4( aux , 1.0 );
 }
 
 //TODO: not being used
@@ -733,4 +735,83 @@ float Fd_Burley ( const in float NoV, const in float NoL,
         float lightScatter = F_Schlick( NoL, vec3(1.0) ).x;
         float viewScatter  = F_Schlick( NoV, vec3(1.0) ).x;
         return lightScatter * viewScatter * RECIPROCAL_PI;
+}
+
+\ssao.fs
+
+#version 330 core
+
+uniform sampler2D u_depth_texture;
+
+uniform mat4 u_inverse_viewprojection;
+uniform mat4 u_viewprojection;
+uniform vec2 u_iRes;
+uniform vec3 u_points[64];
+
+in vec3 v_normal;
+in vec2 v_uv;
+in vec4 v_color;
+
+layout(location = 0) out vec4 FragColor;
+
+vec3 gamma(vec3 c);
+
+void main()
+{
+	//computations
+	vec2 uv = v_uv * u_iRes;
+	float depth = texture2D(u_depth_texture, uv).x;
+ 
+	//return if depth is in the background
+	if( depth >= 0.5 )
+	{
+		FragColor = vec4( 0.0 );
+		discard;
+	}
+
+	//reprojection to world pos coordinates
+	vec4 screen_position = vec4( uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+	vec4 proj_worldpos = u_inverse_viewprojection * screen_position;
+	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
+
+	//AO computations
+	const int samples = 64;
+	int num = samples;
+	float ao = 0.0;
+
+	for( int i = 0; i < samples; i++ ){
+
+		//compute is world position using the random
+		vec3 p = worldpos + u_points[i] * 10.0;
+
+		//find the uv in the depth buffer of this point
+		vec4 proj = u_viewprojection * vec4( p, 1.0);
+		proj.xy /= proj.w;	//convert to clipspace from homogeneous
+
+		//apply a tiny bias to its z before converting to clip-space
+		proj.z = (proj.z - 0.005) / proj.w;
+		proj.xyz = proj.xyz * 0.5 + vec3(0.5); //to [0..1]
+
+		//read p true depth
+		float pdepth = texture( u_depth_texture, proj.xy ).x;
+
+		//compare true depth with its depth
+		if( pdepth < proj.z ) //if true depth smaller, is inside
+			num--; //remove this point from the list of visible
+	}
+
+	ao = float(num) / float(samples);
+
+	FragColor = vec4(ao);
+	//FragColor = texture(u_depth_texture, uv);
+}
+
+vec3 degamma(vec3 c)
+{
+	return pow(c,vec3(2.2));
+}
+
+vec3 gamma(vec3 c)
+{
+	return pow(c,vec3(1.0/2.2));
 }
