@@ -462,6 +462,16 @@ Texture* Texture::getWhiteTexture()
 	return white;
 }
 
+Texture* Texture::getRedTexture()
+{
+	static Texture* red = NULL;
+	if (red)
+		return red;
+	Uint8 data[3] = { 255, 0, 0 };
+	red = new Texture(1, 1, GL_RGB, GL_UNSIGNED_BYTE, true, (Uint8*)data);
+	return red;
+}
+
 void Texture::copyTo(Texture* destination, Shader* shader)
 {
 	glDisable(GL_DEPTH_TEST);

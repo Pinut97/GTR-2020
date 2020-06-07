@@ -54,16 +54,9 @@ public:
 
 	Vector3 color;
 	Vector3 target_vector;
+	Vector3 initial_position;
 	float intensity;
 	float maxDist;
-	float angleCutoff;
-	float spotExponent;
-	bool far_directional_shadowmap_updated;
-	bool is_cascade;	//only for directional lights
-
-	bool show_shadowMap;	//tell if shadow map is being shown
-	bool show_camera;	//debuggin purposes
-	bool renderedHighShadow;
 
 	Camera* camera;
 	Texture* shadowMap;
@@ -75,6 +68,20 @@ public:
 
 	lightType light_type;
 
+	//spot parameters
+	float angleCutoff;
+	float innerAngle;
+	float spotExponent;
+
+	bool far_directional_shadowmap_updated;
+	bool is_cascade;	//only for directional lights
+	
+	//debug parameters
+	bool show_shadowMap;	//tell if shadow map is being shown
+	bool show_camera;	//debuggin purposes
+	bool renderedHighShadow;
+
+	//METHODES
 	Light(lightType type_);
 
 	void render(Camera* camera, GTR::Renderer* renderer) {};
@@ -83,11 +90,10 @@ public:
 	void setPosition(float x, float y, float z);
 	void setColor(float r, float g, float b);
 
-	void updateDirectional(Camera* camera);
-	void renderShadowMap(GTR::Renderer* renderer);
+	void renderShadowMap(GTR::Renderer* renderer, Camera* user_camera);
 
 private:
-	void renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade);
+	void renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade, Camera* user_camera);
 	void renderSpotShadowMap(GTR::Renderer* renderer);
 };
 

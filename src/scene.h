@@ -21,6 +21,7 @@ public:
 	unsigned int numPrefabEntities;
 	unsigned int numLightEntities;
 	bool ambient_light;
+	bool ambient_occlusion;
 
 	FBO* fbo;
 
@@ -36,8 +37,8 @@ public:
 	void generateScene(Camera* camera);
 	void generateTerrain(float size);
 	void generateTestScene();
-	void generateDepthMap(GTR::Renderer* renderer);
-	void update(Camera* camera);
+	void generateSecondScene(Camera* camera);
+	void generateDepthMap(GTR::Renderer* renderer, Camera* camera);
 };
 
 #endif // !SCENE_H

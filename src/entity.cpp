@@ -66,24 +66,27 @@ Light::Light(lightType type_)
 	intensity = 1.0f;
 	maxDist = 100.0f;
 	color = Vector3(1, 1, 1);
-	angleCutoff = 30;
-	spotExponent = 0;
-
+	initial_position = model.getTranslation();
 	visible = true;
-	show_shadowMap = false;
-	show_camera = false;
-	far_directional_shadowmap_updated = false;
+
 	is_cascade = false;
 	renderedHighShadow = false;
 
+	angleCutoff = 30;
+	innerAngle = 15;	//angleCutoff* (2.0f / 3.0f);
+	spotExponent = 0;
+
+	//debug
+	show_shadowMap = false;
+	show_camera = false;
+	far_directional_shadowmap_updated = false;
+
 	fbo = NULL;
 	shadowMap = NULL;	
-	mesh = new Mesh();
-	//mesh->createPyramid();
 
 	camera = new Camera();
 	camera->projection_matrix = model;
-	camera->lookAt(model.getTranslation(), model.getTranslation() + model.frontVector(), Vector3(0, 1, 0));
+	camera->lookAt(model.getTranslation(), Vector3(0,0,0), Vector3(0, 1, 0));
 
 	if (type_ == lightType::AMBIENT) { name = "Ambient light"; }
 	else if (type_ == lightType::SPOT) {
@@ -102,6 +105,7 @@ Light::Light(lightType type_)
 	}
 	else {
 		name = "Directional light";
+		//camera->setOrthographic(-512, 512, -512, 512, -500, 5000);
 		camera->setOrthographic(-256, 256, -256, 256, -500, 5000);
 	}
 }
@@ -127,6 +131,10 @@ void Light::renderInMenu()
 		ImGui::Checkbox("Show camera", &show_camera);
 		if (this->light_type == lightType::DIRECTIONAL)
 			ImGui::Checkbox("Activate cascade", &this->is_cascade);
+		if (this->light_type == lightType::SPOT) {
+			ImGui::DragFloat("Outter Angle", &this->angleCutoff);
+			ImGui::DragFloat("Inner Angle", &this->innerAngle);
+		}
 
 		if (ImGui::TreeNode(camera, "Camera light")) {
 			camera->renderInMenu();
@@ -160,13 +168,7 @@ void Light::setPosition(Vector3 pos) { this->model.translate(pos.x, pos.y, pos.z
 void Light::setPosition(float x, float y, float z) { this->model.translate(x, y, z); }
 void Light::setColor(float r, float g, float b) { this->color = Vector3(r, g, b); }
 
-void Light::updateDirectional(Camera* user_camera)
-{
-	this->camera->eye = user_camera->eye + target_vector;
-	this->camera->lookAt(camera->eye, user_camera->eye, Vector3(0, 1, 0));
-}
-
-void Light::renderShadowMap(GTR::Renderer* renderer)
+void Light::renderShadowMap(GTR::Renderer* renderer, Camera* user_camera)
 {
 	if (this->light_type != lightType::SPOT && this->light_type != lightType::DIRECTIONAL &&
 		this->light_type != lightType::POINT_LIGHT)
@@ -205,7 +207,7 @@ void Light::renderShadowMap(GTR::Renderer* renderer)
 	}
 	else if( light_type == lightType::DIRECTIONAL){
 
-		renderDirectionalShadowMap(renderer, is_cascade);
+		renderDirectionalShadowMap(renderer, is_cascade, user_camera);
 	}
 
 	this->fbo->unbind();
@@ -231,19 +233,21 @@ void Light::renderSpotShadowMap(GTR::Renderer* renderer)
 	}
 }
 
-void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade)
+void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade, Camera* user_camera)
 {
 
 	float texture_width = this->fbo->depth_texture->width;
 	float texture_height = this->fbo->depth_texture->height;
-	float w = 512.0f;
-	float h = 512.0f;
+	float w = 1024; // this->camera->right - this->camera->left;
+	float h = 1024; // this->camera->top - this->camera->bottom;
 	float grid;
 
 	//if (!far_directional_shadowmap_updated)
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 	Texture* background = Texture::getWhiteTexture();
+	this->camera->eye = user_camera->center + this->target_vector;
+	this->camera->lookAt(this->camera->eye, user_camera->center, Vector3(0, 1, 0));
 
 	if (!is_cascade)
 	{
@@ -283,7 +287,6 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade)
 		this->camera->viewprojection_matrix = camera->view_matrix * camera->projection_matrix;
 
 		this->shadow_viewprojection[0] = camera->viewprojection_matrix;
-		//this->shadow_viewprojection[0] = camera->viewprojection_matrix;
 
 		for (auto& entity : Scene::getInstance()->prefabEntities)
 		{
@@ -331,6 +334,8 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade)
 		//---------------
 		this->camera->setOrthographic(-2 * w, 2 * w, -2 * h, 2 * h / 2,
 			this->camera->near_plane, this->camera->far_plane);
+		this->camera->eye = this->initial_position;
+		this->camera->lookAt(this->camera->eye, Vector3(0, 0, 0), Vector3(0, 1, 0));
 
 		glViewport(texture_width / 2, texture_height / 2, texture_width / 2, texture_height / 2);
 

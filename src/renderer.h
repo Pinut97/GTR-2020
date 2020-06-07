@@ -19,8 +19,13 @@ namespace GTR {
 		bool shadow;
 		bool deferred;
 		bool show_GBuffers;
+		bool use_ao;
+		bool use_light;
+
 		FBO* fbo;
 		FBO* ssao_fbo;
+
+		Renderer();
 
 		//add here your functions
 		void renderDeferred(Camera* camera);

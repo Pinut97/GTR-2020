@@ -30,6 +30,8 @@ public:
 	bool render_grid;
 	bool real_time_shadows;
 
+	std::vector<Vector3> points;
+
 	//some vars
 	bool mouse_locked; //tells if the mouse is locked (blocked in the center and not visible)
 	bool render_wireframe; //in case we want to render everything in wireframe mode

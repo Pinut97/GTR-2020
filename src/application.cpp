@@ -20,8 +20,8 @@
 
 Application* Application::instance = nullptr;
 //Vector4 bg_color(0.5, 0.5, 0.5, 1.0);
-Vector4 bg_color(1.0, 1.0, 1.0, 1.0);
-//Vector4 bg_color(0.0, 0.0, 0.0, 1.0);
+//Vector4 bg_color(1.0, 1.0, 1.0, 1.0);
+Vector4 bg_color(0.0, 0.0, 0.0, 1.0);
 
 Camera* camera = nullptr;
 GTR::Prefab* prefab = nullptr;
@@ -40,6 +40,7 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	must_exit = false;
 	render_debug = true;
 	render_gui = true;
+	this->real_time_shadows = true;
 
 	render_wireframe = false;
 
@@ -68,13 +69,17 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 
 	loadData();
 
+	Application::instance->points.resize(124);
+	Application::instance->points = GTR::generateSpherePoints(124, 1.0f, true);
+
 	Scene::getInstance()->generateScene(camera);
+	//Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
 	//testing purposes
 	PrefabEntity* car = new PrefabEntity(prefab);
 
-	//Scene::getInstance()->generateDepthMap(renderer);
+	Scene::getInstance()->generateDepthMap(renderer, camera);
 
 	//hide the cursor
 	SDL_ShowCursor(!mouse_locked); //hide or show the mouse
@@ -109,8 +114,8 @@ void Application::render(void)
 	//Rendering The Scene
 	//-------------------
 	if (real_time_shadows) {
-		Scene::getInstance()->update(camera);
-		Scene::getInstance()->generateDepthMap(renderer);
+		//Scene::getInstance()->update(camera);
+		Scene::getInstance()->generateDepthMap(renderer, camera);
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -167,6 +172,8 @@ void Application::update(double seconds_elapsed)
 	if (Input::isKeyPressed(SDL_SCANCODE_S) || Input::isKeyPressed(SDL_SCANCODE_DOWN)) camera->move(Vector3(0.0f, 0.0f,-1.0f) * speed);
 	if (Input::isKeyPressed(SDL_SCANCODE_A) || Input::isKeyPressed(SDL_SCANCODE_LEFT)) camera->move(Vector3(1.0f, 0.0f, 0.0f) * speed);
 	if (Input::isKeyPressed(SDL_SCANCODE_D) || Input::isKeyPressed(SDL_SCANCODE_RIGHT)) camera->move(Vector3(-1.0f, 0.0f, 0.0f) * speed);
+
+	if (Input::isKeyPressed(SDL_SCANCODE_G)) renderer->show_GBuffers = !renderer->show_GBuffers;
 
 	//mouse input to rotate the cam
 	#ifndef SKIP_IMGUI
@@ -289,6 +296,7 @@ void Application::renderDebugGUI(void)
 	ImGui::ColorEdit4("BG color", bg_color.v);
 	ImGui::Checkbox("Grid", &render_grid);
 	ImGui::Checkbox("Real Time Shadows", &real_time_shadows);
+	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
 
 	//add info to the debug panel about the camera
 	if (ImGui::TreeNode(camera, "Camera")) {

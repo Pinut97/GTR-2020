@@ -12,8 +12,9 @@ Scene::Scene()
 	Matrix44 model;
 	numLightEntities = 0;
 	numPrefabEntities = 0;
-	ambientLight = Vector3(0.1f, 0.1f, 0.1f);
+	ambientLight = Vector3(0.006f, 0.006f, 0.006f);
 	gizmoEntity = nullptr;
+	ambient_occlusion = true;
 }
 
 void Scene::render(Camera* camera, GTR::Renderer* renderer) {
@@ -60,7 +61,7 @@ void Scene::generateScene(Camera* camera) {
 	this->ambientLight = Vector3(0.1, 0.1, 0.1);
 
 	Light* light = new Light(lightType::POINT_LIGHT);
-	light->setPosition(80, 120, 175);
+	light->setPosition(-450, 120, 175);
 	light->intensity = 5;
 	light->maxDist = 500;
 
@@ -79,6 +80,7 @@ void Scene::generateScene(Camera* camera) {
 	spotLight->setPosition(-30, 100, 80);
 	spotLight->color = Vector3(1, 0.7, 0.4);
 	spotLight->maxDist = 1200;
+	spotLight->intensity = 15;
 	spotLight->camera->far_plane = spotLight->maxDist;
 	spotLight->camera->lookAt(spotLight->model.getTranslation(), 
 		spotLight->model.getTranslation() + spotLight->model.frontVector(), Vector3(0, 1, 0));
@@ -88,21 +90,22 @@ void Scene::generateScene(Camera* camera) {
 	spotLight2->setPosition(-600, 100, -300);
 	spotLight2->color = Vector3(1, 0.7, 0.4);
 	spotLight2->maxDist = 1200;
+	spotLight2->intensity = 15;
 	spotLight2->camera->far_plane = spotLight2->maxDist;
 	spotLight2->camera->lookAt(spotLight2->model.getTranslation(),
 		spotLight2->model.getTranslation() + spotLight2->model.frontVector(), Vector3(0, 1, 0));
 
 	Light* directionalLight = new Light(lightType::DIRECTIONAL);
 	directionalLight->setPosition(450.0f, 600.0f, 0.0f);
-	directionalLight->camera->lookAt(directionalLight->model.getTranslation(), camera->eye,
+	directionalLight->camera->lookAt(directionalLight->model.getTranslation(), Vector3(0,0,0),
 		Vector3(0, 1, 0));
 	directionalLight->camera->far_plane = 3000.0f;
-	//directionalLight->setColor(0.2, 0.4, 0.6);
 	directionalLight->setColor(0.015, 0.04, 0.1);
 	directionalLight->intensity = 1;
-	directionalLight->target_vector = directionalLight->camera->eye - camera->eye;
+	directionalLight->target_vector = directionalLight->camera->eye;
+	directionalLight->initial_position = directionalLight->model.getTranslation() + directionalLight->target_vector;
 	this->lightEntities.push_back(directionalLight);
-
+	
 	this->lightEntities.push_back(light);
 	this->lightEntities.push_back(lightRed);
 	this->lightEntities.push_back(lightRed2);
@@ -135,6 +138,62 @@ void Scene::generateScene(Camera* camera) {
 	this->prefabEntities.push_back(car3);
 	this->prefabEntities.push_back(car4);
 
+}
+
+void Scene::generateSecondScene(Camera* camera) 
+{
+	//generateTerrain(1000);
+
+	//white floor for technical purposes
+	Mesh* floorMesh = new Mesh();
+	floorMesh->createPlane(1000);
+
+	GTR::Prefab* floorPrefab = new GTR::Prefab();
+
+	GTR::Material* material = new GTR::Material();
+	material->color_texture = Texture::getWhiteTexture();
+
+	floorPrefab->name = "floor";
+	floorPrefab->root.mesh = floorMesh;
+	floorPrefab->root.material = material;
+	PrefabEntity* floorEntity = new PrefabEntity(floorPrefab);
+	this->prefabEntities.push_back(floorEntity);
+
+	//scene---------------
+	GTR::Prefab* prefab = GTR::Prefab::Get("data/prefabs/brutalism/scene.gltf");
+
+	Uint8 data[3] = { 75, 75, 75 };
+	Texture* gray = new Texture(1, 1, GL_RGB, GL_UNSIGNED_BYTE, true, (Uint8*)data);
+
+	//ENTITIES
+	PrefabEntity* building = new PrefabEntity(prefab);
+	building->model.scale(100, 100, 100);
+	building->pPrefab->root.children[0]->material->color_texture = Texture::getWhiteTexture();
+	building->pPrefab->root.children[1]->material->color_texture = Texture::getWhiteTexture();
+	building->pPrefab->root.children[2]->material->color_texture = Texture::getWhiteTexture();
+	//this->prefabEntities.push_back(building);
+
+	//LIGHTS
+	Light* light = new Light(lightType::POINT_LIGHT);
+	light->maxDist = 500;
+	light->model.translate(0, 150, 0);
+
+	Light* directional = new Light(lightType::DIRECTIONAL);
+	directional->model.translate(200, 500, 0);
+	directional->target_vector = directional->camera->eye;
+	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
+	directional->camera->lookAt(directional->model.getTranslation(), Vector3(0, 0, 0) - directional->model.getTranslation(),
+		Vector3(0, 1, 0));
+
+	Light* spotLight = new Light(lightType::SPOT);
+	spotLight->model.translate(0, 30, 0);
+	spotLight->maxDist = 500;
+	
+	this->ambientLight = Vector3(0.006f, 0.006f, 0.006f);
+
+	//this->lightEntities.push_back(light);
+	//this->lightEntities.push_back(directional);
+	this->lightEntities.push_back(spotLight);
 }
 
 void Scene::generateTestScene() 
@@ -183,22 +242,11 @@ void Scene::generateTestScene()
 	this->prefabEntities.push_back(cubeEntity);
 }
 
-void Scene::generateDepthMap(GTR::Renderer* renderer)
+void Scene::generateDepthMap(GTR::Renderer* renderer, Camera* user_camera)
 {
 	for (auto light : lightEntities)
 	{
-		light->renderShadowMap(renderer);
-	}
-}
-
-void Scene::update(Camera* camera)
-{
-	for (auto light : lightEntities)
-	{
-		if (light->light_type == lightType::DIRECTIONAL)
-		{
-			light->updateDirectional(camera);
-		}
+		light->renderShadowMap(renderer, user_camera);
 	}
 }
 
