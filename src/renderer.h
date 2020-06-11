@@ -19,11 +19,16 @@ namespace GTR {
 		bool shadow;
 		bool deferred;
 		bool show_GBuffers;
+		bool show_ao;
+		bool show_deferred;
 		bool use_ao;
 		bool use_light;
 
 		FBO* fbo;
 		FBO* ssao_fbo;
+		Texture* blur_texture;
+
+		std::vector<Vector3> points;
 
 		Renderer();
 

@@ -57,6 +57,7 @@ public:
 	Vector3 initial_position;
 	float intensity;
 	float maxDist;
+	float bias;
 
 	Camera* camera;
 	Texture* shadowMap;

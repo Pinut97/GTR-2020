@@ -18,12 +18,19 @@ class Application;
 Renderer::Renderer()
 {
 	deferred = true;
-	show_GBuffers = false;
 	use_ao = true;
 	use_light = true;
 
+	show_GBuffers = false;
+	show_ao = false;
+	show_deferred = true;
+
 	this->fbo = nullptr;
 	this->ssao_fbo = nullptr;
+	this->blur_texture = new Texture();
+
+	points.resize(64);
+	points = GTR::generateSpherePoints(64, 1.0f, true);
 }
 
 //renders all the prefab
@@ -267,8 +274,9 @@ void Renderer::renderDeferred(Camera* camera)
 	int height = Application::instance->window_height;
 	this->deferred = true;
 
+	//points = GTR::generateSpherePoints(64, 1.0f, false);
+
 	//debug purposes
-	//this->show_GBuffers = false;
 	this->use_ao = true;
 	this->use_light = true;
 
@@ -302,6 +310,7 @@ void Renderer::renderDeferred(Camera* camera)
 	//calculate the inverse of the viewprojection for future passes (ao and light pass)
 	Matrix44 inverse_matrix = camera->viewprojection_matrix;
 	inverse_matrix.inverse();
+	Mesh* quad = Mesh::getQuad();
 
 	this->fbo->unbind();
 
@@ -316,14 +325,14 @@ void Renderer::renderDeferred(Camera* camera)
 		{
 			this->ssao_fbo = new FBO();
 			this->ssao_fbo->create(width, height);
+			this->blur_texture->create(width, height);
 		}
 
 		this->ssao_fbo->bind();
-
-		Mesh* quad = Mesh::getQuad();
-
-		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		ao_shader = Shader::Get("ssao");
 		ao_shader->enable();
@@ -331,31 +340,30 @@ void Renderer::renderDeferred(Camera* camera)
 		ao_shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
 		ao_shader->setUniform("u_inverse_viewprojection", inverse_matrix);
 		ao_shader->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
-		ao_shader->setUniform3Array("u_points", (float*)&Application::instance->points[0], Application::instance->points.size());
+		ao_shader->setUniform3Array("u_points", (float*)&points[0], points.size());
 		
 		ao_shader->setUniform("u_depth_texture", this->fbo->depth_texture, 0);	//pass the depth buffer calculated in the gbuffers
-		
+		ao_shader->setUniform("u_normal_texture", this->fbo->color_textures[1], 1);
+
 		quad->render(GL_TRIANGLES);
 
 		this->ssao_fbo->unbind();
 		ao_shader->disable();
 
-		//blur
-		//Shader* blurShader = Shader::Get("blur");
-		//blurShader->enable();
-		//
-		//blurShader->setUniform("u_color", Vector4(1, 1, 1, 1));
-		//blurShader->setUniform("u_texture", this->ssao_fbo->color_textures[0], 2);
-		//blurShader->setUniform("u_time", 1.0f);
-		//blurShader->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
-		//
-		//quad->render(GL_TRIANGLES);
-		//
-		//blurShader->disable();
-
 		//this->ssao_fbo->color_textures[0]->toViewport();
+
+		Shader* blurShader = Shader::Get("blur");
+		blurShader->enable();
+		blurShader->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+		this->ssao_fbo->color_textures[0]->copyTo(this->blur_texture, blurShader);
+		blurShader->setUniform("u_iRes", Vector2(1.0 / (float)width * 2.0, 1.0 / (float)height) * 2.0);
+		blur_texture->copyTo(this->ssao_fbo->color_textures[0], blurShader);
+		blurShader->setUniform("u_iRes", Vector2(1.0 / (float)width * 4.0, 1.0 / (float)height) * 4.0);
+		this->ssao_fbo->color_textures[0]->copyTo(this->blur_texture, blurShader);
+
+		blurShader->disable();
+
 	}
-	
 	
 	//second pass - light
 
@@ -382,10 +390,13 @@ void Renderer::renderDeferred(Camera* camera)
 		second_pass->setUniform("u_normal_texture", this->fbo->color_textures[1], 1);
 		second_pass->setUniform("u_metal_roughness_texture", this->fbo->color_textures[2], 2);
 		second_pass->setUniform("u_depth_texture", this->fbo->depth_texture, 3);
+		//if (use_ao && Scene::getInstance()->ambient_occlusion) {
+		//	second_pass->setUniform("u_ao_texture", blur_texture ?
+		//		blur_texture : Texture::getWhiteTexture(), 4);
+		//}
 
 		//lights pass
 		bool firstLight = true;
-
 
 		//multipass
 		for (size_t i = 0; i < Scene::getInstance()->lightEntities.size(); i++)	//pass for all lights
@@ -395,14 +406,16 @@ void Renderer::renderDeferred(Camera* camera)
 			if (!light->visible)
 				continue;
 
+			second_pass->setUniform("u_first_pass", firstLight);
+
 			if (firstLight) {
 				firstLight = false;
 				glDisable(GL_BLEND);
 				second_pass->setUniform("u_ambient_light", Scene::getInstance()->ambient_light 
 					? Scene::getInstance()->ambientLight : Vector3(0.0f, 0.0f, 0.0f));
 				if (use_ao && Scene::getInstance()->ambient_occlusion) {
-					second_pass->setUniform("u_ao_texture", this->ssao_fbo->color_textures[0] ?
-						this->ssao_fbo->color_textures[0] : Texture::getBlackTexture(), 4);
+					second_pass->setUniform("u_ao_texture", blur_texture ?
+						blur_texture : Texture::getBlackTexture(), 4);
 				}
 			}
 			else {
@@ -410,7 +423,7 @@ void Renderer::renderDeferred(Camera* camera)
 				glBlendFunc(GL_ONE, GL_ONE);
 				glBlendEquation(GL_FUNC_ADD);
 				assert(glGetError() == GL_NO_ERROR);
-				second_pass->setUniform("u_ao_texture", Texture::getWhiteTexture(), 4);
+				//second_pass->setUniform("u_ao_texture", Texture::getBlackTexture(), 4);
 				second_pass->setUniform("u_ambient_light", Vector3(0.0f, 0.0f, 0.0f));
 			}
 
@@ -423,6 +436,8 @@ void Renderer::renderDeferred(Camera* camera)
 			second_pass->setUniform("u_light_spot_cosine", (float)cos(DEG2RAD * light->angleCutoff));
 			second_pass->setUniform("u_light_spot_inner_cosine", (float)cos(DEG2RAD* light->innerAngle));
 			second_pass->setUniform("u_light_spot_exponent", light->spotExponent);
+			second_pass->setUniform("u_light_bias", light->bias);
+
 
 			if (light->shadowMap)
 			{
@@ -457,7 +472,10 @@ void Renderer::renderDeferred(Camera* camera)
 		second_pass->disable();
 	}
 	
-	if (show_GBuffers) {
+	if (show_ao)
+		blur_texture->toViewport();
+		//this->ssao_fbo->color_textures[0]->toViewport();
+	else if (show_GBuffers) {
 		glViewport(0, height * 0.5, width * 0.5, height * 0.5);
 		this->fbo->color_textures[0]->toViewport();
 		glViewport(width * 0.5, height * 0.5, width * 0.5, height * 0.5);
@@ -472,6 +490,8 @@ void Renderer::renderDeferred(Camera* camera)
 		depth_shader->setUniform("u_camera_nearfar", Vector2(camera->near_plane, camera->far_plane));
 		this->fbo->depth_texture->toViewport(depth_shader);
 		depth_shader->disable();
+
+		glViewport(0, 0, width, height);	//restore viewport size
 	}
 	
 }

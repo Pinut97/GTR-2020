@@ -81,6 +81,7 @@ void Scene::generateScene(Camera* camera) {
 	spotLight->color = Vector3(1, 0.7, 0.4);
 	spotLight->maxDist = 1200;
 	spotLight->intensity = 15;
+	spotLight->bias = 0.005;
 	spotLight->camera->far_plane = spotLight->maxDist;
 	spotLight->camera->lookAt(spotLight->model.getTranslation(), 
 		spotLight->model.getTranslation() + spotLight->model.frontVector(), Vector3(0, 1, 0));
@@ -91,6 +92,7 @@ void Scene::generateScene(Camera* camera) {
 	spotLight2->color = Vector3(1, 0.7, 0.4);
 	spotLight2->maxDist = 1200;
 	spotLight2->intensity = 15;
+	spotLight2->bias = 0.005;
 	spotLight2->camera->far_plane = spotLight2->maxDist;
 	spotLight2->camera->lookAt(spotLight2->model.getTranslation(),
 		spotLight2->model.getTranslation() + spotLight2->model.frontVector(), Vector3(0, 1, 0));
@@ -142,7 +144,7 @@ void Scene::generateScene(Camera* camera) {
 
 void Scene::generateSecondScene(Camera* camera) 
 {
-	//generateTerrain(1000);
+	generateTerrain(1000);
 
 	//white floor for technical purposes
 	Mesh* floorMesh = new Mesh();
@@ -157,7 +159,7 @@ void Scene::generateSecondScene(Camera* camera)
 	floorPrefab->root.mesh = floorMesh;
 	floorPrefab->root.material = material;
 	PrefabEntity* floorEntity = new PrefabEntity(floorPrefab);
-	this->prefabEntities.push_back(floorEntity);
+	//this->prefabEntities.push_back(floorEntity);
 
 	//scene---------------
 	GTR::Prefab* prefab = GTR::Prefab::Get("data/prefabs/brutalism/scene.gltf");
@@ -171,7 +173,7 @@ void Scene::generateSecondScene(Camera* camera)
 	building->pPrefab->root.children[0]->material->color_texture = Texture::getWhiteTexture();
 	building->pPrefab->root.children[1]->material->color_texture = Texture::getWhiteTexture();
 	building->pPrefab->root.children[2]->material->color_texture = Texture::getWhiteTexture();
-	//this->prefabEntities.push_back(building);
+	this->prefabEntities.push_back(building);
 
 	//LIGHTS
 	Light* light = new Light(lightType::POINT_LIGHT);
@@ -191,8 +193,8 @@ void Scene::generateSecondScene(Camera* camera)
 	
 	this->ambientLight = Vector3(0.006f, 0.006f, 0.006f);
 
-	//this->lightEntities.push_back(light);
-	//this->lightEntities.push_back(directional);
+	this->lightEntities.push_back(light);
+	this->lightEntities.push_back(directional);
 	this->lightEntities.push_back(spotLight);
 }
 

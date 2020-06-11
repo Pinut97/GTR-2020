@@ -70,10 +70,10 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	loadData();
 
 	Application::instance->points.resize(124);
-	Application::instance->points = GTR::generateSpherePoints(124, 1.0f, true);
+	//Application::instance->points = GTR::generateSpherePoints(264, 10.0f, false);
 
-	Scene::getInstance()->generateScene(camera);
-	//Scene::getInstance()->generateSecondScene(camera);
+	//Scene::getInstance()->generateScene(camera);
+	Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
 	//testing purposes
@@ -297,6 +297,9 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Grid", &render_grid);
 	ImGui::Checkbox("Real Time Shadows", &real_time_shadows);
 	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
+
+	ImGui::Checkbox("Show AO", &renderer->show_ao);
+	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);
 
 	//add info to the debug panel about the camera
 	if (ImGui::TreeNode(camera, "Camera")) {

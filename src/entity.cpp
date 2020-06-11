@@ -68,6 +68,7 @@ Light::Light(lightType type_)
 	color = Vector3(1, 1, 1);
 	initial_position = model.getTranslation();
 	visible = true;
+	bias = 0.001f;
 
 	is_cascade = false;
 	renderedHighShadow = false;
@@ -120,6 +121,7 @@ void Light::renderInMenu()
 
 	ImGui::DragFloat("Intensity", &intensity);
 	ImGui::DragFloat("Max Distance", &maxDist);
+	ImGui::DragFloat("Bias", &bias, 0.001f);
 
 	if (ImGui::Button("Selected"))
 		Scene::getInstance()->gizmoEntity = this;
