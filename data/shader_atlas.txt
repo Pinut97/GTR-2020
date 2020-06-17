@@ -9,6 +9,7 @@ deferred basic.vs deferred.fs
 deferred_pospo quad.vs deferred_pospo.fs
 ssao quad.vs ssao.fs
 blur quad.vs blur.fs
+probe basic.vs probe.fs
 
 \basic.vs
 
@@ -694,16 +695,6 @@ float computeShadowFactor( in int type, in vec3 worldpos )
 	float yOffset = 1.0 * u_iRes.y;
 	float factor = 0.0;
 
-	//for( int y = -1; y <= 1; y++){
-	//	for( int x = -1; x <= 1; x++){
-	//		vec2 offsets = vec2( x * xOffset, y * yOffset );
-	//		vec3 UVC = vec3(shadow_uv.xy + offsets, real_depth + 0.00001);
-	//		factor += texture(u_shadow_map, UVC.xy);
-	//	}
-	//}
-	//
-	//return (0.5 + (factor / 18.0 ));
-
 	if (shadow_depth < real_depth)
 		return 0.0;
 	return 1.0;
@@ -950,4 +941,63 @@ void makeBlur( out vec4 FragColor, in vec2 uv)
 
 	color/= Quality * Directions - 15.0;
 
+}
+
+\probe.fs
+
+#version 330 core
+
+uniform mat4 u_viewprojection;
+uniform vec3 u_camera_pos;
+uniform mat4 u_model;
+uniform vec3 u_coeffs[9];
+
+in vec3 v_normal;
+
+const float Pi = 3.141592654;
+const float CosineA0 = Pi;
+const float CosineA1 = (2.0 * Pi) / 3.0;
+const float CosineA2 = Pi * 0.25;
+struct SH9 { float c[9]; }; //to store weights
+struct SH9Color { vec3 c[9]; }; //to store colors
+
+void SHCosineLobe(in vec3 dir, out SH9 sh) //SH9
+{
+	// Band 0
+	sh.c[0] = 0.282095 * CosineA0;
+	// Band 1
+	sh.c[1] = 0.488603 * dir.y * CosineA1; 
+	sh.c[2] = 0.488603 * dir.z * CosineA1;
+	sh.c[3] = 0.488603 * dir.x * CosineA1;
+	// Band 2
+	sh.c[4] = 1.092548 * dir.x * dir.y * CosineA2;
+	sh.c[5] = 1.092548 * dir.y * dir.z * CosineA2;
+	sh.c[6] = 0.315392 * (3.0 * dir.z * dir.z - 1.0) * CosineA2;
+	sh.c[7] = 1.092548 * dir.x * dir.z * CosineA2;
+	sh.c[8] = 0.546274 * (dir.x * dir.x - dir.y * dir.y) * CosineA2;
+}
+
+vec3 ComputeSHIrradiance(in vec3 normal, in SH9Color sh)
+{
+	// Compute the cosine lobe in SH, oriented about the normal direction
+	SH9 shCosine;
+	SHCosineLobe(normal, shCosine);
+	// Compute the SH dot product to get irradiance
+	vec3 irradiance = vec3(0.0);
+	for(int i = 0; i < 9; ++i)
+		irradiance += sh.c[i] * shCosine.c[i];
+
+	return irradiance;
+}
+
+layout( location = 0 ) out vec4 FragColor;
+
+void main()
+{
+	SH9Color coeffsColors;
+	coeffsColors.c = u_coeffs;
+
+	vec3 N = normalize( v_normal );
+	vec3 color = ComputeSHIrradiance( N, coeffsColors );
+	FragColor = vec4( color, 1.0 );
 }

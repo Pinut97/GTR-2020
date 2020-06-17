@@ -28,7 +28,6 @@ public:
 	bool render_debug;
 	bool render_gui;
 	bool render_grid;
-	bool real_time_shadows;
 
 	std::vector<Vector3> points;
 

@@ -13,6 +13,7 @@
 
 #include "scene.h"
 #include "entity.h"
+#include "sphericalharmonics.h"
 
 #include <cmath>
 #include <string>
@@ -36,12 +37,13 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	this->window_width = window_width;
 	this->window_height = window_height;
 	this->window = window;
+
 	instance = this;
 	must_exit = false;
-	render_debug = true;
-	render_gui = true;
-	this->real_time_shadows = true;
 
+	render_debug = true;
+	render_grid = false;
+	render_gui = true;
 	render_wireframe = false;
 
 	fps = 0;
@@ -76,6 +78,7 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
+
 	//testing purposes
 	PrefabEntity* car = new PrefabEntity(prefab);
 
@@ -93,15 +96,7 @@ void Application::render(void)
 
 	//set the clear color (the background color)
 	glClearColor(bg_color.x, bg_color.y, bg_color.z, bg_color.w);
-
-	// Clear the color and the depth buffer
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	checkGLErrors();
-
-	glEnable(GL_CULL_FACE);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glEnable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// Clear the color and the depth buffer
 
 	if (render_wireframe)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -113,48 +108,14 @@ void Application::render(void)
 
 	//Rendering The Scene
 	//-------------------
-	if (real_time_shadows) {
-		//Scene::getInstance()->update(camera);
-		Scene::getInstance()->generateDepthMap(renderer, camera);
-	}
-
-	glEnable(GL_DEPTH_TEST);
 	//Scene::getInstance()->render(camera, renderer);
-
 	Scene::getInstance()->renderDeferred(camera, renderer);
-
-	//Rendering the debug options of the scene (shadowmaps, cameras etc)
-
-	glViewport(0, 0, 300, 300);
-	for (auto light : Scene::getInstance()->lightEntities)
-	{
-		if (light->shadowMap && light->show_shadowMap)
-		{
-			Shader* shader = Shader::Get("depth");
-			shader->enable();
-			shader->setUniform("u_camera_nearfar",
-				Vector2(light->camera->near_plane, light->camera->far_plane));
-			if (light->light_type == lightType::SPOT || light->light_type == lightType::POINT_LIGHT)
-				light->shadowMap->toViewport(shader);
-			else
-				light->fbo->depth_texture->toViewport();
-			shader->disable();
-		}
-		else if (light->show_camera)
-		{
-			light->camera->enable();
-			Scene::getInstance()->render(light->camera, renderer);
-		}
-	}
-
-	camera->enable();
-	glViewport(0, 0, window_width, window_height);
+	//renderer->renderProbes(Vector3(0, 0, 0), 10.0f, (float*)&shtest);
 
 	//Draw the floor grid, helpful to have a reference point
 	if (render_debug && render_grid)
 		drawGrid();
 
-	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDisable(GL_DEPTH_TEST);
 	//render anything in the gui after this
 
@@ -295,7 +256,7 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Wireframe", &render_wireframe);
 	ImGui::ColorEdit4("BG color", bg_color.v);
 	ImGui::Checkbox("Grid", &render_grid);
-	ImGui::Checkbox("Real Time Shadows", &real_time_shadows);
+	ImGui::Checkbox("Real Time Shadows", &renderer->use_realtime_shadows);
 	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
 
 	ImGui::Checkbox("Show AO", &renderer->show_ao);

@@ -55,9 +55,11 @@ public:
 	Vector3 color;
 	Vector3 target_vector;
 	Vector3 initial_position;
+
 	float intensity;
 	float maxDist;
 	float bias;
+	float cascade_size;
 
 	Camera* camera;
 	Texture* shadowMap;

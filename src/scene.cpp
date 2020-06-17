@@ -29,6 +29,7 @@ void Scene::render(Camera* camera, GTR::Renderer* renderer) {
 		renderer->shadow = true;
 		this->prefabEntities.at(i)->render(camera, renderer);
 		renderer->shadow = false;
+		renderer->deferred = false;
 		this->prefabEntities.at(i)->render(camera, renderer);
 	}
 };
@@ -146,33 +147,12 @@ void Scene::generateSecondScene(Camera* camera)
 {
 	generateTerrain(1000);
 
-	//white floor for technical purposes
-	Mesh* floorMesh = new Mesh();
-	floorMesh->createPlane(1000);
-
-	GTR::Prefab* floorPrefab = new GTR::Prefab();
-
-	GTR::Material* material = new GTR::Material();
-	material->color_texture = Texture::getWhiteTexture();
-
-	floorPrefab->name = "floor";
-	floorPrefab->root.mesh = floorMesh;
-	floorPrefab->root.material = material;
-	PrefabEntity* floorEntity = new PrefabEntity(floorPrefab);
-	//this->prefabEntities.push_back(floorEntity);
-
 	//scene---------------
 	GTR::Prefab* prefab = GTR::Prefab::Get("data/prefabs/brutalism/scene.gltf");
-
-	Uint8 data[3] = { 75, 75, 75 };
-	Texture* gray = new Texture(1, 1, GL_RGB, GL_UNSIGNED_BYTE, true, (Uint8*)data);
 
 	//ENTITIES
 	PrefabEntity* building = new PrefabEntity(prefab);
 	building->model.scale(100, 100, 100);
-	building->pPrefab->root.children[0]->material->color_texture = Texture::getWhiteTexture();
-	building->pPrefab->root.children[1]->material->color_texture = Texture::getWhiteTexture();
-	building->pPrefab->root.children[2]->material->color_texture = Texture::getWhiteTexture();
 	this->prefabEntities.push_back(building);
 
 	//LIGHTS
@@ -182,10 +162,10 @@ void Scene::generateSecondScene(Camera* camera)
 
 	Light* directional = new Light(lightType::DIRECTIONAL);
 	directional->model.translate(200, 500, 0);
-	directional->target_vector = directional->camera->eye;
-	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
 	directional->camera->lookAt(directional->model.getTranslation(), Vector3(0, 0, 0) - directional->model.getTranslation(),
 		Vector3(0, 1, 0));
+	directional->target_vector = directional->camera->eye;
+	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
 
 	Light* spotLight = new Light(lightType::SPOT);
 	spotLight->model.translate(0, 30, 0);
@@ -254,5 +234,7 @@ void Scene::generateDepthMap(GTR::Renderer* renderer, Camera* user_camera)
 
 void Scene::renderDeferred(Camera* camera, GTR::Renderer* renderer)
 {
+	if (renderer->use_realtime_shadows)		//recalculate the shadow texture in real time
+		this->generateDepthMap(renderer, camera);
 	renderer->renderDeferred(camera);
 }

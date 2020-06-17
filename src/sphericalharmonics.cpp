@@ -115,7 +115,7 @@ SphericalHarmonics computeSH( FloatImage images[], bool degamma ) {
                 weightAccum += weight * 3.0f;
             }
         }
-    };
+    }
 
     SphericalHarmonics linear_sh;
     for (int i = 0; i < sh_length; i++)

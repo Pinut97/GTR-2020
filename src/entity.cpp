@@ -70,12 +70,13 @@ Light::Light(lightType type_)
 	visible = true;
 	bias = 0.001f;
 
-	is_cascade = false;
+	is_cascade = true;
 	renderedHighShadow = false;
 
 	angleCutoff = 30;
 	innerAngle = 15;	//angleCutoff* (2.0f / 3.0f);
 	spotExponent = 0;
+	cascade_size = 256;
 
 	//debug
 	show_shadowMap = false;
@@ -83,11 +84,11 @@ Light::Light(lightType type_)
 	far_directional_shadowmap_updated = false;
 
 	fbo = NULL;
-	shadowMap = NULL;	
+	shadowMap = new Texture();
 
 	camera = new Camera();
 	camera->projection_matrix = model;
-	camera->lookAt(model.getTranslation(), Vector3(0,0,0), Vector3(0, 1, 0));
+	camera->lookAt(model.getTranslation(), Vector3(1,0,0), Vector3(0, 1, 0));
 
 	if (type_ == lightType::AMBIENT) { name = "Ambient light"; }
 	else if (type_ == lightType::SPOT) {
@@ -106,8 +107,7 @@ Light::Light(lightType type_)
 	}
 	else {
 		name = "Directional light";
-		//camera->setOrthographic(-512, 512, -512, 512, -500, 5000);
-		camera->setOrthographic(-256, 256, -256, 256, -500, 5000);
+		camera->setOrthographic(-128, 128, -128, 128, -500, 5000);
 	}
 }
 
@@ -187,11 +187,13 @@ void Light::renderShadowMap(GTR::Renderer* renderer, Camera* user_camera)
 		{
 			this->fbo = new FBO();
 			this->fbo->setDepthOnly(w, h);
+			this->shadowMap->create(fbo->depth_texture->width, fbo->depth_texture->height);
 		}
 		else
 		{
 			this->fbo = new FBO();
-			this->fbo->setDepthOnly(w / 2, h * 3);
+			this->fbo->setDepthOnly(w, h);
+			this->shadowMap->create(fbo->depth_texture->width, fbo->depth_texture->height);
 		}
 
 	}
@@ -215,10 +217,13 @@ void Light::renderShadowMap(GTR::Renderer* renderer, Camera* user_camera)
 	this->fbo->unbind();
 
 	renderer->shadow = false;
-
 	glDisable(GL_DEPTH_TEST);
 
+	float width = fbo->depth_texture->width;
+	float height = fbo->depth_texture->height;
+
 	this->shadowMap = this->fbo->depth_texture;
+
 }
 
 void Light::renderSpotShadowMap(GTR::Renderer* renderer)
@@ -240,12 +245,11 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade,
 
 	float texture_width = this->fbo->depth_texture->width;
 	float texture_height = this->fbo->depth_texture->height;
-	float w = 1024; // this->camera->right - this->camera->left;
-	float h = 1024; // this->camera->top - this->camera->bottom;
+	float w = cascade_size;
+	float h = cascade_size;
 	float grid;
 
-	//if (!far_directional_shadowmap_updated)
-		glClear(GL_DEPTH_BUFFER_BIT);
+	glClear(GL_DEPTH_BUFFER_BIT);
 
 	Texture* background = Texture::getWhiteTexture();
 	this->camera->eye = user_camera->center + this->target_vector;
@@ -253,10 +257,11 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade,
 
 	if (!is_cascade)
 	{
+		glViewport(0, 0, texture_width, texture_height);
 		this->camera->setOrthographic(-w / 2.0f, w / 2.0f, -h / 2.0f, h / 2.0f,
 			this->camera->near_plane, this->camera->far_plane);
 
-		grid = w / (texture_width * 0.5f);
+		grid = w / (texture_width);
 		camera->view_matrix.M[3][1] = round(camera->view_matrix.M[3][1] / grid) * grid;
 		camera->view_matrix.M[3][0] = round(camera->view_matrix.M[3][0] / grid) * grid;
 
@@ -269,6 +274,49 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade,
 	}
 	else {
 
+		for (int i = 1; i <= 4; i++)
+		{
+			this->camera->setOrthographic(-w * i, w * i, -h * i, h * i,
+				this->camera->near_plane, this->camera->far_plane);
+
+			this->camera->updateProjectionMatrix();
+
+			switch (i)
+			{
+			case 1:
+				glViewport(0, 0, texture_width / 2.0f, texture_height / 2.0f);
+				grid = w / (texture_width * 0.5f); break;
+			case 2:
+				glViewport(texture_width / 2.0f, 0, texture_width / 2.0f, texture_height / 2.0f); 
+				grid = (w * 2.0) / (this->fbo->depth_texture->width / 2); break;
+			case 3:
+				glViewport(0, texture_height / 2, texture_width / 2, texture_height / 2); 
+				grid = (w * 3.0) / (this->fbo->depth_texture->width / 2); break;
+			case 4:
+				glViewport(texture_width / 2, texture_height / 2, texture_width / 2, texture_height / 2); 
+				grid = (w * 4.0) / (this->fbo->depth_texture->width / 2); break;
+			default:
+				break;
+			}
+
+			//in order to find the size of each pixel in world coordinates we need to take the width of the frustum
+			//divided by the texture size. Since the texture is an atlas texture we have to divide it by the size of 
+			//each real texture and not the whole texture (in this case just the half of the whole texture since each
+			//texture occupies a quarter of the whole)
+			//once the calculations are done, we round the position of the camera to make it fit into the grid
+
+			camera->view_matrix.M[3][1] = round(camera->view_matrix.M[3][1] / grid) * grid;
+			camera->view_matrix.M[3][0] = round(camera->view_matrix.M[3][0] / grid) * grid;
+			this->camera->viewprojection_matrix = camera->view_matrix * camera->projection_matrix;
+
+			this->shadow_viewprojection[i - 1] = camera->viewprojection_matrix;
+
+			for (auto& entity : Scene::getInstance()->prefabEntities)
+			{
+				renderer->renderPrefab(entity->model, entity->pPrefab, this->camera);
+			}
+		}
+		/*
 		//first quadrant
 		//--------------
 		this->camera->setOrthographic(-w / 4.0f, w / 4.0f, -h / 4.0f, h / 4.0f,
@@ -357,5 +405,6 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade,
 		}
 
 		far_directional_shadowmap_updated = true;
+		*/
 	}
 }

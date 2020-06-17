@@ -1,6 +1,7 @@
 #pragma once
 #include "prefab.h"
 #include "fbo.h"
+#include "sphericalharmonics.h"
 
 //forward declarations
 class Camera;
@@ -18,28 +19,43 @@ namespace GTR {
 	public:
 		bool shadow;
 		bool deferred;
+
 		bool show_GBuffers;
 		bool show_ao;
 		bool show_deferred;
+
 		bool use_ao;
 		bool use_light;
+		bool use_realtime_shadows;
 
 		FBO* fbo;
 		FBO* ssao_fbo;
+		FBO* irr_fbo;
 		Texture* blur_texture;
 
 		std::vector<Vector3> points;
+		std::vector<sProbe> probes;
+
+		Vector3 start_pos;
+		Vector3 end_pos;
+		Vector3 dim;
+		Vector3 delta;
+
+		const int probes_size = 10;
 
 		Renderer();
 
 		//add here your functions
 		void renderDeferred(Camera* camera);
-
 		void renderPrefabShadowMap(const Matrix44 model, Mesh* mesh, GTR::Material* material, Camera* camera);
-
 		void renderMeshInDeferred(const Matrix44 model, Mesh* mesh, GTR::Material* material, Camera* camera);
+		void computeIrradiance();
+		void computeProbeCoeffs(sProbe& p);
 
-		void renderLights(Camera* camera);
+		//debug functions
+		void renderShadowMap();
+		void renderGBuffers(Camera* camera);
+		void renderProbes(Vector3 pos, float size, float* coeffs);
 	
 		//to render a whole prefab (with all its nodes)
 		void renderPrefab(const Matrix44& model, GTR::Prefab* prefab, Camera* camera);
