@@ -309,7 +309,7 @@ void Application::onKeyDown( SDL_KeyboardEvent event )
 		case SDLK_F1: render_debug = !render_debug; break;
 		case SDLK_f: camera->center.set(0, 0, 0); camera->updateViewMatrix(); break;
 		case SDLK_F5: Shader::ReloadAll(); break;
-		case SDLK_i: renderer->computeIrradiance(); renderer->show_irradiance = true; break;
+		case SDLK_i: renderer->computeIrradiance(); renderer->show_probes = true; break;
 	}
 }
 

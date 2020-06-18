@@ -526,9 +526,10 @@ void Renderer::computeIrradiance()
 
 	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
 
-	probes_texture->bind();
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//probes_texture->bind();
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//probes_texture->unbind();
 
 	delete[] sh_data;
 }
