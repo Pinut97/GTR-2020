@@ -34,6 +34,7 @@ public:
 
 	void render(Camera* camera, GTR::Renderer* renderer);
 	void renderDeferred(Camera* camera, GTR::Renderer* renderer);
+	void renderForward(Camera* camera, GTR::Renderer* renderer);
 	void generateScene(Camera* camera);
 	void generateTerrain(float size);
 	void generateTestScene();

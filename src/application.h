@@ -19,6 +19,8 @@ public:
 	int window_width;
 	int window_height;
 
+	Camera* camera;
+
 	//some globals
 	long frame;
     float time;

@@ -30,6 +30,8 @@ Renderer::Renderer()
 	show_GBuffers = false;
 	show_ao = false;
 	show_deferred = true;
+	show_probes = false;
+	show_irradiance = false;
 
 	fbo = nullptr;
 	ssao_fbo = nullptr;
@@ -39,9 +41,8 @@ Renderer::Renderer()
 	points = GTR::generateSpherePoints(64, 1.0f, true);
 
 	start_pos = Vector3(-55, 10, -170);
-	end_pos = Vector3(180, 150, 80);
-	//end_pos = Vector3(-50, 15, -160);
-	dim = Vector3(2, 2, 2);
+	end_pos = Vector3(250, 200, 150);
+	dim = Vector3(5, 5, 5);
 
 	delta = (end_pos - start_pos);
 	delta.x /= dim.x - 1;
@@ -49,9 +50,9 @@ Renderer::Renderer()
 	delta.z /= dim.z - 1;
 
 	irr_fbo = new FBO();
-	irr_fbo->create(1024, 1024, 1, GL_RGB, GL_FLOAT);
+	irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
 
-	computeIrradiance();
+	//computeIrradiance();
 }
 
 //renders all the prefab
@@ -139,15 +140,6 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	if (texture == NULL)
 		texture = Texture::getWhiteTexture(); //a 1x1 white texture
 
-	//select the blending
-	if (material->alpha_mode == GTR::AlphaMode::BLEND)
-	{
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	}
-	else
-		glDisable(GL_BLEND);
-
 	//select if render both sides of the triangles
 	if (material->two_sided)
 		glDisable(GL_CULL_FACE);
@@ -166,13 +158,12 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	shader->enable();
 
 	glDepthFunc(GL_LEQUAL);
-
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	glEnable(GL_DEPTH_TEST);
 
 	if (Scene::getInstance()->lightEntities.empty())
 	{
 		glDisable(GL_BLEND);
-		glDisable(GL_DEPTH);
 
 		shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
 		shader->setUniform("u_camera_pos", camera->eye);
@@ -256,7 +247,6 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	glDisable(GL_BLEND);
 }
 
-
 void Renderer::renderPrefabShadowMap(const Matrix44 model, Mesh* mesh, GTR::Material* material, Camera* camera)
 {
 	if (!mesh || !mesh->getNumVertices())
@@ -308,7 +298,7 @@ void Renderer::renderDeferred(Camera* camera)
 	this->fbo->bind();
 
 	//glClearColor(0.1, 0.1, 0.1, 1.0);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
+	//glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_DEPTH_TEST);
@@ -386,7 +376,7 @@ void Renderer::renderDeferred(Camera* camera)
 		glDisable(GL_BLEND);
 		glDisable(GL_DEPTH_TEST);
 
-		glClearColor(0.0, 0.0, 0.0, 1.0);
+		//glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 		second_pass = Shader::Get("deferred_pospo");
@@ -409,6 +399,12 @@ void Renderer::renderDeferred(Camera* camera)
 		else {
 			second_pass->setUniform("u_ao_texture", Texture::getWhiteTexture(), 4);
 		}
+
+		//irradiance pass
+		second_pass->setUniform("u_irr_texture", probes_texture, 5);
+		second_pass->setUniform("u_irr_start", start_pos);
+		second_pass->setUniform("u_irr_end", end_pos);
+		second_pass->setUniform("u_irr_delta", delta);
 
 		//lights pass
 		bool firstLight = true;
@@ -487,8 +483,11 @@ void Renderer::renderDeferred(Camera* camera)
 	if (show_ao)
 		blur_texture->toViewport();
 
-	for each (sProbe p in probes)
-		renderProbes(p.pos, 5.0f, (float*)&p.sh);
+	if (show_probes)
+	{
+		for each (sProbe p in probes)
+			renderProbes(p.pos, 10.0f, (float*)&p.sh);
+	}
 	
 }
 
@@ -507,35 +506,58 @@ void Renderer::computeIrradiance()
 				probes.push_back(p);
 			}
 
-	//probes.at(0).sh.coeffs[0].set(1.0f, 0.0f, 1.0f);
+	if (!irr_fbo) {
+		irr_fbo = new FBO();
+		irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
+	}
 
 	for (auto& p: probes)
 	{
 		computeProbeCoeffs(p);
 	}
 
+	probes_texture = new Texture(9, probes.size(), GL_RGB, GL_FLOAT);
+	SphericalHarmonics* sh_data = nullptr;
+	sh_data = new SphericalHarmonics[dim.x, dim.y, dim.z];
+
+	for (size_t i = 0; i < probes.size(); i++)
+	{
+		sProbe p = probes.at(i);
+		sh_data[i].coeffs->set(p.sh.coeffs->x, p.sh.coeffs->y, p.sh.coeffs->z);
+	}
+
+	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
+
+	probes_texture->bind();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	delete[] sh_data;
 }
 
 void Renderer::computeProbeCoeffs(sProbe& p)
 {
-	Camera* cam = new Camera();
 	FloatImage images[6];
 
-	cam->setPerspective(90, 1, 0.1f, 1000.0f);
+	Camera cam;
+	cam.setPerspective(90, 1, 0.1f, 1000.0f);
 
-	//p.sh.coeffs[0].set(1.0f, 0.0f, 1.0f);
-	
 	for (int i = 0; i < 6; i++)
 	{
 		Vector3 eye = p.pos;
 		Vector3 front = cubemapFaceNormals[i][2];
 		Vector3 center = p.pos + front;
 		Vector3 up = cubemapFaceNormals[i][1];
-		cam->lookAt(eye, center, up);
-		cam->enable();
+		cam.lookAt(eye, center, up);
+		cam.enable();
 
 		irr_fbo->bind();
-		Scene::getInstance()->render(cam, this);
+
+		//glClearColor(0.0, 0.0, 1.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Scene::getInstance()->render()
+		Scene::getInstance()->renderForward(&cam, this);
 		irr_fbo->unbind();
 
 		images[i].fromTexture(irr_fbo->color_textures[0]);

@@ -604,7 +604,12 @@ void main()
 
 	finalColor = gamma( finalColor );
 	FragColor = vec4( finalColor, 1.0 );
-	//FragColor = vec4( ao_factor );
+}
+
+float getIrradianceRow( in vec3 worldpos, in vec3 N )
+{
+	vec3 irr_range = u_irr_end - u_irr_start;
+	vec3 irr_local_pos = clamp( worldpos - u_irr_start + N * u_irr_normal_distance, vec3(0.0), irr_range );
 }
 
 //return 1.0 if inside the cone, 0.0 otherwise

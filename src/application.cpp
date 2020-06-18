@@ -22,9 +22,9 @@
 Application* Application::instance = nullptr;
 //Vector4 bg_color(0.5, 0.5, 0.5, 1.0);
 //Vector4 bg_color(1.0, 1.0, 1.0, 1.0);
-Vector4 bg_color(0.0, 0.0, 0.0, 1.0);
+Vector4 bg_color(0.5, 0.7, 0.9, 1.0);
 
-Camera* camera = nullptr;
+//Camera* camera = nullptr;
 GTR::Prefab* prefab = nullptr;
 GTR::Renderer* renderer = nullptr;
 FBO* fbo = nullptr;
@@ -108,9 +108,9 @@ void Application::render(void)
 
 	//Rendering The Scene
 	//-------------------
+	//Scene::getInstance()->renderForward(camera, renderer);
 	//Scene::getInstance()->render(camera, renderer);
 	Scene::getInstance()->renderDeferred(camera, renderer);
-	//renderer->renderProbes(Vector3(0, 0, 0), 10.0f, (float*)&shtest);
 
 	//Draw the floor grid, helpful to have a reference point
 	if (render_debug && render_grid)
@@ -309,6 +309,7 @@ void Application::onKeyDown( SDL_KeyboardEvent event )
 		case SDLK_F1: render_debug = !render_debug; break;
 		case SDLK_f: camera->center.set(0, 0, 0); camera->updateViewMatrix(); break;
 		case SDLK_F5: Shader::ReloadAll(); break;
+		case SDLK_i: renderer->computeIrradiance(); renderer->show_irradiance = true; break;
 	}
 }
 

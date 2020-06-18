@@ -34,6 +34,16 @@ void Scene::render(Camera* camera, GTR::Renderer* renderer) {
 	}
 };
 
+void Scene::renderForward(Camera* camera, GTR::Renderer* renderer)
+{
+	renderer->shadow = false;
+	renderer->deferred = false;
+	for (PrefabEntity* e : prefabEntities)
+	{
+		e->render(camera, renderer);
+	}
+}
+
 void Scene::generateTerrain(float size)
 {
 	Mesh* floorMesh = new Mesh();
@@ -127,14 +137,17 @@ void Scene::generateScene(Camera* camera) {
 	PrefabEntity* car2 = new PrefabEntity(car_prefab);
 	car2->setPosition(0, 0, 500);
 	car2->model.rotate(DEG2RAD * 180, Vector3(0, 1, 0));
+	car2->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
 
 	PrefabEntity* car3 = new PrefabEntity(car_prefab);
 	car3->setPosition(150, 0, 0);
 	car3->model.rotate(DEG2RAD * 30, Vector3(0, 1, 0));
+	car3->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
 
 	PrefabEntity* car4 = new PrefabEntity(car_prefab);
 	car4->setPosition(-900, 0, 0);
 	car4->model.rotate(DEG2RAD * 30, Vector3(0, 1, 0));
+	car4->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
 
 	this->prefabEntities.push_back(car);
 	this->prefabEntities.push_back(car2);
@@ -167,15 +180,10 @@ void Scene::generateSecondScene(Camera* camera)
 	directional->target_vector = directional->camera->eye;
 	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
 
-	Light* spotLight = new Light(lightType::SPOT);
-	spotLight->model.translate(0, 30, 0);
-	spotLight->maxDist = 500;
-	
 	this->ambientLight = Vector3(0.006f, 0.006f, 0.006f);
 
-	this->lightEntities.push_back(light);
+	//this->lightEntities.push_back(light);
 	this->lightEntities.push_back(directional);
-	this->lightEntities.push_back(spotLight);
 }
 
 void Scene::generateTestScene() 

@@ -20,18 +20,21 @@ namespace GTR {
 		bool shadow;
 		bool deferred;
 
-		bool show_GBuffers;
-		bool show_ao;
-		bool show_deferred;
-
 		bool use_ao;
 		bool use_light;
 		bool use_realtime_shadows;
+
+		bool show_GBuffers;
+		bool show_ao;
+		bool show_deferred;
+		bool show_probes;
+		bool show_irradiance;
 
 		FBO* fbo;
 		FBO* ssao_fbo;
 		FBO* irr_fbo;
 		Texture* blur_texture;
+		Texture* probes_texture;
 
 		std::vector<Vector3> points;
 		std::vector<sProbe> probes;
