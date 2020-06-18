@@ -169,7 +169,8 @@ void Scene::generateSecondScene(Camera* camera)
 	this->prefabEntities.push_back(building);
 
 	//LIGHTS
-	Light* light = new Light(lightType::POINT_LIGHT);
+	Light* light = new Light(lightType::SPOT);
+	light->setColor(0.2, 0.5, 1);
 	light->maxDist = 500;
 	light->model.translate(0, 150, 0);
 
@@ -182,7 +183,7 @@ void Scene::generateSecondScene(Camera* camera)
 
 	this->ambientLight = Vector3(0.006f, 0.006f, 0.006f);
 
-	//this->lightEntities.push_back(light);
+	this->lightEntities.push_back(light);
 	this->lightEntities.push_back(directional);
 }
 

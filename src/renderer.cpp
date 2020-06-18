@@ -52,7 +52,6 @@ Renderer::Renderer()
 	irr_fbo = new FBO();
 	irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
 
-	//computeIrradiance();
 }
 
 //renders all the prefab
@@ -297,8 +296,6 @@ void Renderer::renderDeferred(Camera* camera)
 	//first pass - Geometry
 	this->fbo->bind();
 
-	//glClearColor(0.1, 0.1, 0.1, 1.0);
-	//glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_DEPTH_TEST);
@@ -401,10 +398,10 @@ void Renderer::renderDeferred(Camera* camera)
 		}
 
 		//irradiance pass
-		second_pass->setUniform("u_irr_texture", probes_texture, 5);
-		second_pass->setUniform("u_irr_start", start_pos);
-		second_pass->setUniform("u_irr_end", end_pos);
-		second_pass->setUniform("u_irr_delta", delta);
+		//second_pass->setUniform("u_irr_texture", probes_texture, 5);
+		//second_pass->setUniform("u_irr_start", start_pos);
+		//second_pass->setUniform("u_irr_end", end_pos);
+		//second_pass->setUniform("u_irr_delta", delta);
 
 		//lights pass
 		bool firstLight = true;
@@ -488,11 +485,12 @@ void Renderer::renderDeferred(Camera* camera)
 		for each (sProbe p in probes)
 			renderProbes(p.pos, 10.0f, (float*)&p.sh);
 	}
-	
 }
 
 void Renderer::computeIrradiance()
 {
+	probes.clear();
+
 	for(int z = 0; z < dim.z; z++)
 		for(int y = 0; y < dim.y; y++)
 			for (int x = 0; x < dim.x; x++)
@@ -553,7 +551,6 @@ void Renderer::computeProbeCoeffs(sProbe& p)
 
 		irr_fbo->bind();
 
-		//glClearColor(0.0, 0.0, 1.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//Scene::getInstance()->render()
