@@ -296,7 +296,6 @@ void Application::renderDebugGUI(void)
 			ImGui::TreePop();
 		}
 	}
-
 #endif
 }
 
