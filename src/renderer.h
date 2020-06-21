@@ -23,6 +23,7 @@ namespace GTR {
 		bool use_ao;
 		bool use_light;
 		bool use_realtime_shadows;
+		bool use_irradiance;
 
 		bool show_GBuffers;
 		bool show_ao;

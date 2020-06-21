@@ -26,6 +26,7 @@ Renderer::Renderer()
 	use_ao = true;
 	use_light = true;
 	use_realtime_shadows = false;
+	use_irradiance = false;
 
 	show_GBuffers = false;
 	show_ao = false;
@@ -397,11 +398,15 @@ void Renderer::renderDeferred(Camera* camera)
 			second_pass->setUniform("u_ao_texture", Texture::getWhiteTexture(), 4);
 		}
 
-		//irradiance pass
-		//second_pass->setUniform("u_irr_texture", probes_texture, 5);
-		//second_pass->setUniform("u_irr_start", start_pos);
-		//second_pass->setUniform("u_irr_end", end_pos);
-		//second_pass->setUniform("u_irr_delta", delta);
+		if(use_irradiance)
+		{
+			//irradiance pass
+			second_pass->setUniform("u_irr_texture", probes_texture, 5);
+			second_pass->setUniform("u_irr_start", start_pos);
+			second_pass->setUniform("u_irr_end", end_pos);
+			second_pass->setUniform("u_irr_delta", delta);
+			second_pass->setUniform("u_irr_dims", dim);
+		}
 
 		//lights pass
 		bool firstLight = true;
@@ -450,7 +455,7 @@ void Renderer::renderDeferred(Camera* camera)
 				else if (light->light_type == lightType::DIRECTIONAL && light->is_cascade)
 					second_pass->setMatrix44Array("u_shadow_viewprojection_array", light->shadow_viewprojection, 4);
 				second_pass->setUniform("u_shadow_map", (light->shadowMap) ? 
-					light->shadowMap : Texture::getWhiteTexture(), 5);
+					light->shadowMap : Texture::getWhiteTexture(), 6);
 			}
 
 			second_pass->enable();
@@ -521,15 +526,14 @@ void Renderer::computeIrradiance()
 	for (size_t i = 0; i < probes.size(); i++)
 	{
 		sProbe p = probes.at(i);
-		sh_data[i].coeffs->set(p.sh.coeffs->x, p.sh.coeffs->y, p.sh.coeffs->z);
+		sh_data[(int)p.local.x, (int)p.local.y, (int)p.local.z].coeffs->set(p.sh.coeffs->x, p.sh.coeffs->y, p.sh.coeffs->z);
 	}
 
 	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
 
-	//probes_texture->bind();
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	//probes_texture->unbind();
+	probes_texture->bind();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 	delete[] sh_data;
 }
@@ -656,8 +660,11 @@ void Renderer::renderMeshInDeferred(const Matrix44 model, Mesh* mesh, GTR::Mater
 	shader->setUniform("u_camera_pos", camera->eye);
 
 	//object uniforms
+	material->color = vec4(1.0, 1.0, 1.0, 1.0);
 	shader->setUniform("u_color", material->color);
+
 	shader->setUniform("u_color_texture", color_texture ? color_texture : Texture::getWhiteTexture(), 0);
+
 	shader->setUniform("u_metal_roughness_texture", metal_roughness_texture ? metal_roughness_texture : Texture::getRedTexture(), 1);
 
 	mesh->render(GL_TRIANGLES);

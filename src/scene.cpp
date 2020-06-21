@@ -170,18 +170,19 @@ void Scene::generateSecondScene(Camera* camera)
 
 	//LIGHTS
 	Light* light = new Light(lightType::SPOT);
-	light->setColor(0.2, 0.5, 1);
+	light->setColor(1.0, 0.0, 0.0);
+	light->intensity = 10.0f;
 	light->maxDist = 500;
 	light->model.translate(0, 150, 0);
-
+	
 	Light* directional = new Light(lightType::DIRECTIONAL);
 	directional->model.translate(200, 500, 0);
 	directional->camera->lookAt(directional->model.getTranslation(), Vector3(0, 0, 0) - directional->model.getTranslation(),
 		Vector3(0, 1, 0));
 	directional->target_vector = directional->camera->eye;
 	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
-
-	this->ambientLight = Vector3(0.006f, 0.006f, 0.006f);
+	
+	this->ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 
 	this->lightEntities.push_back(light);
 	this->lightEntities.push_back(directional);
