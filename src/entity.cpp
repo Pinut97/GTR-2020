@@ -231,6 +231,10 @@ void Light::renderSpotShadowMap(GTR::Renderer* renderer)
 	int w = this->fbo->depth_texture->width;
 	int h = this->fbo->depth_texture->height;
 
+	this->camera->lookAt(this->model.getTranslation(), 
+		this->model.getTranslation() + this->model.frontVector(),
+		Vector3(0, 1, 0));
+
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, w, h);
 

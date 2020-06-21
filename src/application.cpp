@@ -74,8 +74,8 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	Application::instance->points.resize(124);
 	//Application::instance->points = GTR::generateSpherePoints(264, 10.0f, false);
 
-	//Scene::getInstance()->generateScene(camera);
-	Scene::getInstance()->generateSecondScene(camera);
+	Scene::getInstance()->generateScene(camera);
+	//Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
 	//testing purposes

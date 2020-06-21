@@ -398,6 +398,8 @@ void Renderer::renderDeferred(Camera* camera)
 			second_pass->setUniform("u_ao_texture", Texture::getWhiteTexture(), 4);
 		}
 
+
+		second_pass->setUniform("u_user_irr", use_irradiance);
 		if(use_irradiance)
 		{
 			//irradiance pass

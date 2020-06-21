@@ -494,6 +494,7 @@ uniform bool u_bool_shadow;
 uniform sampler2D u_shadow_map;
 
 //irradiance uniforms
+uniform bool u_user_irr;
 uniform sampler2D u_irr_texture;
 uniform vec3 u_irr_start;
 uniform vec3 u_irr_end;
@@ -564,6 +565,8 @@ void main()
 	//calculate f0 reflection based on the color and metalness
 	vec3 f0 = color_texture * metal + (vec3( 0.5 ) * ( 1.0 - metal ));
 
+	SH9Color sh;
+
 	//normalize the Light, Vision and Half vector and compute some dot products
 	vec3 L = normalize( u_light_position - worldpos );
 	vec3 V = normalize( u_camera_pos - worldpos );
@@ -610,20 +613,23 @@ void main()
 	}
 
 	if( u_first_pass ){
-		//Irradiance
-		float row_uv = getIrradianceRow( worldpos, N );
-		//fill the coefficients
-		const float d_uvx = 1.0 / 9.0;
-		SH9Color sh;
-		for(int i = 0; i < 9; ++i)
-		{
-			vec2 coeffs_uv = vec2( (float(i)+0.5) * d_uvx, row_uv );
-			sh.c[i] = texture( u_irr_texture, coeffs_uv).xyz;
-		}
 
-		//now we can use the coefficients to compute the irradiance
-		vec3 irradiance = ComputeSHIrradiance( N, sh );
-		light += irradiance;
+		if( u_user_irr )
+		{
+			float row_uv = getIrradianceRow( worldpos, N );
+			const float d_uvx = 1.0 / 9.0;
+			
+			for(int i = 0; i < 9; ++i)
+			{
+				vec2 coeffs_uv = vec2( (float(i)+0.5) * d_uvx, row_uv );
+				sh.c[i] = texture( u_irr_texture, coeffs_uv).xyz;
+			}
+
+			//now we can use the coefficients to compute the irradiance
+			vec3 irradiance = ComputeSHIrradiance( N, sh );
+			light += irradiance;
+		}
+		
 		light += ambient_light;
 	}
 		
