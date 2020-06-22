@@ -30,6 +30,7 @@ namespace GTR {
 		bool show_deferred;
 		bool show_probes;
 		bool show_irradiance;
+		bool show_probe_coefficients_texture;
 
 		FBO* fbo;
 		FBO* ssao_fbo;

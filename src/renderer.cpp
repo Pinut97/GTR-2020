@@ -33,9 +33,11 @@ Renderer::Renderer()
 	show_deferred = true;
 	show_probes = false;
 	show_irradiance = false;
+	show_probe_coefficients_texture = false;
 
 	fbo = nullptr;
 	ssao_fbo = nullptr;
+	probes_texture = nullptr;
 	blur_texture = new Texture();
 
 	points.resize(64);
@@ -484,7 +486,10 @@ void Renderer::renderDeferred(Camera* camera)
 	renderShadowMap();
 	renderGBuffers(camera);
 
-	if (show_ao)
+	if(show_probe_coefficients_texture && probes_texture != nullptr)
+		probes_texture->toViewport();
+
+	if (show_ao && blur_texture != nullptr)
 		blur_texture->toViewport();
 
 	if (show_probes)
@@ -505,7 +510,7 @@ void Renderer::computeIrradiance()
 				sProbe p;
 				p.local.set(x, y, z);
 
-				p.index = x + y * dim.x + z * dim.x * dim.y;
+				p.index = floor(x + y * dim.x + z * dim.x * dim.y);
 
 				p.pos = start_pos + delta * Vector3(x, y, z);
 				probes.push_back(p);
@@ -523,12 +528,12 @@ void Renderer::computeIrradiance()
 
 	probes_texture = new Texture(9, probes.size(), GL_RGB, GL_FLOAT);
 	SphericalHarmonics* sh_data = nullptr;
-	sh_data = new SphericalHarmonics[dim.x, dim.y, dim.z];
+	sh_data = new SphericalHarmonics[dim.x * dim.y * dim.z];
 
 	for (size_t i = 0; i < probes.size(); i++)
 	{
 		sProbe p = probes.at(i);
-		sh_data[(int)p.local.x, (int)p.local.y, (int)p.local.z].coeffs->set(p.sh.coeffs->x, p.sh.coeffs->y, p.sh.coeffs->z);
+		sh_data[p.index] = p.sh;
 	}
 
 	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);

@@ -74,8 +74,8 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	Application::instance->points.resize(124);
 	//Application::instance->points = GTR::generateSpherePoints(264, 10.0f, false);
 
-	Scene::getInstance()->generateScene(camera);
-	//Scene::getInstance()->generateSecondScene(camera);
+	//Scene::getInstance()->generateScene(camera);
+	Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
 	//testing purposes
@@ -261,6 +261,7 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Show AO", &renderer->show_ao);
 	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);
 	ImGui::Checkbox("Show Probes", &renderer->show_probes);
+	ImGui::Checkbox("Show Probe Coefficients Texture", &renderer->show_probe_coefficients_texture);
 
 	//add info to the debug panel about the camera
 	if (ImGui::TreeNode(camera, "Camera")) {
