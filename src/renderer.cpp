@@ -11,6 +11,7 @@
 #include "application.h"
 #include "scene.h"
 #include "sphericalharmonics.h"
+#include "extra/hdre.h"
 
 using namespace GTR;
 
@@ -39,6 +40,7 @@ Renderer::Renderer()
 	ssao_fbo = nullptr;
 	probes_texture = nullptr;
 	blur_texture = new Texture();
+	environment = CubemapFromHDRE("data/panorama.hdre");
 
 	points.resize(64);
 	points = GTR::generateSpherePoints(64, 1.0f, true);
@@ -282,6 +284,7 @@ void Renderer::renderPrefabShadowMap(const Matrix44 model, Mesh* mesh, GTR::Mate
 
 void Renderer::renderDeferred(Camera* camera)
 {
+
 	int width = Application::instance->window_width;
 	int height = Application::instance->window_height;
 	this->deferred = true;
@@ -297,6 +300,7 @@ void Renderer::renderDeferred(Camera* camera)
 	}
 
 	//first pass - Geometry
+	renderSkybox(camera);
 	this->fbo->bind();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -377,7 +381,7 @@ void Renderer::renderDeferred(Camera* camera)
 		glDisable(GL_DEPTH_TEST);
 
 		//glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 		second_pass = Shader::Get("deferred_pospo");
 		second_pass->enable();
@@ -723,4 +727,45 @@ std::vector<Vector3> GTR::generateSpherePoints(int num,
 			p.z *= -1.0;
 	}
 	return points;
+}
+
+void Renderer::renderSkybox(Camera* camera)
+{
+	if (!environment)
+		return;
+
+	Shader* shader = Shader::Get("skybox");
+
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+
+	Matrix44 model;
+	model.setTranslation(camera->eye.x, camera->eye.y, camera->eye.z);
+	model.scale(10.0, 10.0, 10.0);
+	shader->enable();
+	shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+	shader->setUniform("u_camera_position", camera->eye);
+	shader->setUniform("u_model", model);
+	shader->setUniform("u_texture", environment, 0);
+	Mesh::Get("data/meshes/sphere.obj")->render(GL_TRIANGLES);
+	shader->disable();
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+}
+
+Texture* GTR::CubemapFromHDRE(const char* filename)
+{
+	HDRE* hdre = new HDRE();
+	if (!hdre->load(filename))
+	{
+		delete hdre;
+		return NULL;
+	}
+
+	Texture* texture = new Texture();
+	texture->createCubemap(hdre->width, hdre->height, (Uint8**)hdre->getFaces(0), hdre->header.numChannels == 3 ? GL_RGB : GL_RGBA, GL_FLOAT);
+	for (int i = 1; i < 6; ++i)
+		texture->uploadCubemap(texture->format, texture->type, false, (Uint8**)hdre->getFaces(i), GL_RGBA32F, i);
+	return texture;
 }

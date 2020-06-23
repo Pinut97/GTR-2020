@@ -6,6 +6,8 @@
 
 #include "hdre.h"
 
+HDRE::HDRE(){}
+
 HDRE::HDRE(const char* filename)
 {
 	load(filename);

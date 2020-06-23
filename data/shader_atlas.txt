@@ -10,6 +10,7 @@ deferred_pospo quad.vs deferred_pospo.fs
 ssao quad.vs ssao.fs
 blur quad.vs blur.fs
 probe basic.vs probe.fs
+skybox basic.vs skybox.fs
 
 \basic.vs
 
@@ -1093,4 +1094,22 @@ void main()
 	vec3 N = normalize( v_normal );
 	vec3 color = ComputeSHIrradiance( N, coeffsColors );
 	FragColor = vec4( color, 1.0 );
+}
+
+\skybox.fs
+
+#version 330 core
+
+precision highp float;
+in vec3 v_world_position;
+
+uniform samplerCube u_texture;
+uniform vec3 u_camera_position;
+
+out vec4 FragColor;
+
+void main()
+{
+	vec3 V = normalize(v_world_position - u_camera_position);
+	FragColor = textureLod( u_texture, -V, 0.0) * 1.0;
 }

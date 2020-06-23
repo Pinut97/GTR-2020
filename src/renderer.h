@@ -37,6 +37,7 @@ namespace GTR {
 		FBO* irr_fbo;
 		Texture* blur_texture;
 		Texture* probes_texture;
+		Texture* environment;
 
 		std::vector<Vector3> points;
 		std::vector<sProbe> probes;
@@ -70,8 +71,11 @@ namespace GTR {
 
 		//to render one mesh given its material and transformation matrix
 		void renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Material* material, Camera* camera);
+		
+		//to render skybox
+		void renderSkybox(Camera* camera);
 	};
 
 	std::vector<Vector3> generateSpherePoints(int num, float radius, bool hemi);
-
+	Texture* CubemapFromHDRE(const char* filename);
 };
