@@ -82,9 +82,9 @@ void Renderer::renderNode(const Matrix44& prefab_model, GTR::Node* node, Camera*
 		//if bounding box is inside the camera frustum then the object is probably visible
 		if (camera->testBoxInFrustum(world_bounding.center, world_bounding.halfsize) )
 		{
-			if (shadow)
-				renderPrefabShadowMap(node_model, node->mesh, node->material, camera);
-			else if (deferred)
+			//if (shadow)
+			//	renderPrefabShadowMap(node_model, node->mesh, node->material, camera);
+			if (deferred)
 				renderMeshInDeferred(node_model, node->mesh, node->material, camera);
 			else
 				renderMeshWithMaterial(node_model, node->mesh, node->material, camera);
@@ -111,7 +111,7 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	Texture* emissive_texture = NULL;
 
 	texture = material->color_texture;
-	texture = material->emissive_texture;
+	emissive_texture = material->emissive_texture;
 	//texture = material->metallic_roughness_texture;
 	//texture = material->normal_texture;
 	//texture = material->occlusion_texture;
@@ -134,14 +134,6 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 		glEnable(GL_CULL_FACE);
     assert(glGetError() == GL_NO_ERROR);
 
-	texture = material->color_texture;
-	emissive_texture = material->emissive_texture;
-	//texture = material->metallic_roughness_texture;
-	//texture = material->normal_texture;
-	//texture = material->occlusion_texture;
-	if (texture == NULL)
-		texture = Texture::getWhiteTexture(); //a 1x1 white texture
-
 	//select if render both sides of the triangles
 	if (material->two_sided)
 		glDisable(GL_CULL_FACE);
@@ -163,34 +155,31 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	glEnable(GL_DEPTH_TEST);
 
+	shader->setUniform("u_color", material->color);
+	if (texture)
+		shader->setUniform("u_texture", texture, 0);
+	if (emissive_texture)
+		shader->setUniform("u_emissive_texture", emissive_texture, 1);
+	shader->setUniform("u_emissive_factor", material->emissive_factor);
+
+	//this is used to say which is the alpha threshold to what we should not paint a pixel on the screen (to cut polygons according to texture alpha)
+	shader->setUniform("u_alpha_cutoff", material->alpha_mode == GTR::AlphaMode::MASK ? material->alpha_cutoff : 0);
+
+	shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+	shader->setUniform("u_camera_pos", camera->eye);
+	shader->setUniform("u_model", model);
+	shader->setUniform("u_factor", material->tilling_factor);
+
 	if (Scene::getInstance()->lightEntities.empty())
 	{
 		glDisable(GL_BLEND);
-
-		shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
-		shader->setUniform("u_camera_pos", camera->eye);
-		shader->setUniform("u_model", model);
+		
 		shader->setUniform("u_ambient_light", Scene::getInstance()->ambientLight);
-
-		shader->setUniform("u_color", material->color);
-		if (texture)
-			shader->setUniform("u_texture", texture, 0);
-		if (emissive_texture)
-			shader->setUniform("u_emissive_texture", emissive_texture, 1);
-		shader->setUniform("u_emissive_factor", material->emissive_factor);
-
-		//this is used to say which is the alpha threshold to what we should not paint a pixel on the screen (to cut polygons according to texture alpha)
-		shader->setUniform("u_alpha_cutoff", material->alpha_mode == GTR::AlphaMode::MASK ? material->alpha_cutoff : 0);
 
 		//do the draw call that renders the mesh into the screen
 		mesh->render(GL_TRIANGLES);
 	}
 	else {
-
-		shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
-		shader->setUniform("u_camera_pos", camera->eye);
-		shader->setUniform("u_model", model);
-		shader->setUniform("u_factor", material->tilling_factor);
 
 		for (size_t i = 0; i < Scene::getInstance()->lightEntities.size(); i++)
 		{
@@ -228,22 +217,14 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 			shader->setUniform("u_light_spot_exponent", light->spotExponent);
 			shader->setUniform("u_shadow_map", (light->shadowMap) ? light->shadowMap : Texture::getWhiteTexture(), 3);
 
-			shader->setUniform("u_color", material->color);
-			if (texture)
-				shader->setUniform("u_texture", texture, 0);
-			if (emissive_texture)
-				shader->setUniform("u_emissive_texture", emissive_texture, 1);
-			shader->setUniform("u_emissive_factor", material->emissive_factor);
-
-			//this is used to say which is the alpha threshold to what we should not paint a pixel on the screen (to cut polygons according to texture alpha)
-			shader->setUniform("u_alpha_cutoff", material->alpha_mode == GTR::AlphaMode::MASK ? material->alpha_cutoff : 0);
-
 			//do the draw call that renders the mesh into the screen
 			mesh->render(GL_TRIANGLES);
 		}
 	}
 	//disable shader
 	shader->disable();
+
+	this->renderShadowMap();
 
 	//set the render state as it was before to avoid problems with future renders
 	glDisable(GL_BLEND);
@@ -593,6 +574,7 @@ void Renderer::renderShadowMap()
 			else
 				light->shadowMap->toViewport();
 			shader->disable();
+			glEnable(GL_BLEND);
 		}
 		else if (light->show_camera)
 		{

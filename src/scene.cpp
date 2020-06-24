@@ -131,7 +131,7 @@ void Scene::generateScene(Camera* camera) {
 	GTR::Prefab* car_prefab = GTR::Prefab::Get("data/prefabs/gmc/scene.gltf");
 
 	PrefabEntity* car = new PrefabEntity(car_prefab);
-	car->pPrefab->root.material = new GTR::Material();
+	//car->pPrefab->root.material = new GTR::Material();
 	car->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
 
 	PrefabEntity* car2 = new PrefabEntity(car_prefab);
