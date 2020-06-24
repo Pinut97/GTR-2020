@@ -9,11 +9,4 @@ struct SphericalHarmonics {
 	Vector3 coeffs[9];
 };
 
-struct sProbe {
-	Vector3 pos;
-	Vector3 local;
-	int index;
-	SphericalHarmonics sh;
-};
-
 SphericalHarmonics computeSH( FloatImage images[], bool degamma = false);

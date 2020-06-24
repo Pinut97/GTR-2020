@@ -95,7 +95,7 @@ void Application::render(void)
 
 	//set the clear color (the background color)
 	glClearColor(bg_color.x, bg_color.y, bg_color.z, bg_color.w);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// Clear the color and the depth buffer
 
 	if (render_wireframe)
@@ -110,14 +110,16 @@ void Application::render(void)
 	//-------------------
 	//Scene::getInstance()->renderForward(camera, renderer);
 	//Scene::getInstance()->render(camera, renderer);
-	Scene::getInstance()->renderDeferred(camera, renderer);
+	//Scene::getInstance()->renderDeferred(camera, renderer);
 	//renderer->renderSkybox(camera);
+	//renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
 
 	//Draw the floor grid, helpful to have a reference point
 	if (render_debug && render_grid)
 		drawGrid();
 
 	glDisable(GL_DEPTH_TEST);
+	renderer->reflections_fbo->color_textures[0]->toViewport();
 	//render anything in the gui after this
 
 	//the swap buffers is done in the main loop after this function
