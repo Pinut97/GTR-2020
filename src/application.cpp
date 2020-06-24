@@ -78,6 +78,8 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
+	renderer->computeReflection();
+
 	//testing purposes
 	PrefabEntity* car = new PrefabEntity(prefab);
 
@@ -109,7 +111,7 @@ void Application::render(void)
 	//Rendering The Scene
 	//-------------------
 	//Scene::getInstance()->renderForward(camera, renderer);
-	//Scene::getInstance()->render(camera, renderer);
+	Scene::getInstance()->render(camera, renderer);
 	//Scene::getInstance()->renderDeferred(camera, renderer);
 	//renderer->renderSkybox(camera);
 	//renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
@@ -119,7 +121,8 @@ void Application::render(void)
 		drawGrid();
 
 	glDisable(GL_DEPTH_TEST);
-	renderer->reflections_fbo->color_textures[0]->toViewport();
+	renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
+	//renderer->reflections_fbo->color_textures[0]->toViewport();
 	//render anything in the gui after this
 
 	//the swap buffers is done in the main loop after this function

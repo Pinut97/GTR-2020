@@ -65,11 +65,10 @@ Renderer::Renderer()
 	//create reflexion probes
 	sReflectionProbe* probe = new sReflectionProbe;
 
-	probe->pos.set(100, 200, -100);
+	probe->pos.set(100, 150, -100);
 	probe->cubemap = new Texture();
 	probe->cubemap->createCubemap(512, 512, NULL, GL_RGB, GL_UNSIGNED_INT, false);
 	reflection_probes.push_back(probe);
-	computeReflection();
 }
 
 //renders all the prefab
@@ -126,7 +125,7 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	Texture* emissive_texture = NULL;
 
 	texture = material->color_texture;
-	texture = material->emissive_texture;
+	//emissive_texture = material->emissive_texture;
 	//texture = material->metallic_roughness_texture;
 	//texture = material->normal_texture;
 	//texture = material->occlusion_texture;
@@ -148,21 +147,6 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	else
 		glEnable(GL_CULL_FACE);
     assert(glGetError() == GL_NO_ERROR);
-
-	texture = material->color_texture;
-	emissive_texture = material->emissive_texture;
-	//texture = material->metallic_roughness_texture;
-	//texture = material->normal_texture;
-	//texture = material->occlusion_texture;
-	if (texture == NULL)
-		texture = Texture::getWhiteTexture(); //a 1x1 white texture
-
-	//select if render both sides of the triangles
-	if (material->two_sided)
-		glDisable(GL_CULL_FACE);
-	else
-		glEnable(GL_CULL_FACE);
-	assert(glGetError() == GL_NO_ERROR);
 
 	//chose a shader
 	shader = Shader::Get("light");
