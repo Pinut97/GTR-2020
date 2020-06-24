@@ -45,13 +45,14 @@ private:
 	float * pixels[N_LEVELS][N_FACES]; // Xpos, Xneg, Ypos, Yneg, Zpos, Zneg
 	float * faces_array[N_LEVELS];
 
-	sHDREHeader header;
 
 public:
 
+	sHDREHeader header;
 	int width;
 	int height;
 
+	HDRE();
 	HDRE(const char* filename);
 	~HDRE();
 

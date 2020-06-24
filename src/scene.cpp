@@ -25,9 +25,11 @@ void Scene::render(Camera* camera, GTR::Renderer* renderer) {
 	else
 		Scene::getInstance()->ambientLight = Vector3(0.1, 0.1, 0.1);
 
+	//renderer->generateShadowMaps();
+
 	for (size_t i = 0; i < this->prefabEntities.size(); i++) {
 		renderer->shadow = true;
-		this->prefabEntities.at(i)->render(camera, renderer);
+		//this->prefabEntities.at(i)->render(camera, renderer);
 		renderer->shadow = false;
 		renderer->deferred = false;
 		this->prefabEntities.at(i)->render(camera, renderer);

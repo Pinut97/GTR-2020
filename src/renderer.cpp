@@ -11,6 +11,7 @@
 #include "application.h"
 #include "scene.h"
 #include "sphericalharmonics.h"
+#include "extra/hdre.h"
 
 using namespace GTR;
 
@@ -39,6 +40,7 @@ Renderer::Renderer()
 	ssao_fbo = nullptr;
 	probes_texture = nullptr;
 	blur_texture = new Texture();
+	environment = CubemapFromHDRE("data/panorama.hdre");
 
 	points.resize(64);
 	points = GTR::generateSpherePoints(64, 1.0f, true);
@@ -55,6 +57,18 @@ Renderer::Renderer()
 	irr_fbo = new FBO();
 	irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
 
+	aux_fbo = new FBO();
+	aux_fbo->create(512, 512, 1, GL_RGB, GL_FLOAT);
+
+	reflections_fbo = new FBO();
+
+	//create reflexion probes
+	sReflectionProbe* probe = new sReflectionProbe;
+
+	probe->pos.set(100, 150, -100);
+	probe->cubemap = new Texture();
+	probe->cubemap->createCubemap(512, 512, NULL, GL_RGB, GL_UNSIGNED_INT, false);
+	reflection_probes.push_back(probe);
 }
 
 //renders all the prefab
@@ -133,13 +147,6 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 	else
 		glEnable(GL_CULL_FACE);
     assert(glGetError() == GL_NO_ERROR);
-
-	//select if render both sides of the triangles
-	if (material->two_sided)
-		glDisable(GL_CULL_FACE);
-	else
-		glEnable(GL_CULL_FACE);
-	assert(glGetError() == GL_NO_ERROR);
 
 	//chose a shader
 	shader = Shader::Get("light");
@@ -263,6 +270,7 @@ void Renderer::renderPrefabShadowMap(const Matrix44 model, Mesh* mesh, GTR::Mate
 
 void Renderer::renderDeferred(Camera* camera)
 {
+
 	int width = Application::instance->window_width;
 	int height = Application::instance->window_height;
 	this->deferred = true;
@@ -278,6 +286,7 @@ void Renderer::renderDeferred(Camera* camera)
 	}
 
 	//first pass - Geometry
+	renderSkybox(camera);
 	this->fbo->bind();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -358,7 +367,7 @@ void Renderer::renderDeferred(Camera* camera)
 		glDisable(GL_DEPTH_TEST);
 
 		//glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 		second_pass = Shader::Get("deferred_pospo");
 		second_pass->enable();
@@ -475,26 +484,31 @@ void Renderer::renderDeferred(Camera* camera)
 
 	if (show_probes)
 	{
-		for each (sProbe p in probes)
+		for each (sIrradianceProbe p in irradiance_probes)
 			renderProbes(p.pos, 10.0f, (float*)&p.sh);
+	}
+
+	if(true)
+	{
+		renderReflectionProbe(reflection_probes[0], camera);
 	}
 }
 
 void Renderer::computeIrradiance()
 {
-	probes.clear();
+	irradiance_probes.clear();
 
 	for(int z = 0; z < dim.z; z++)
 		for(int y = 0; y < dim.y; y++)
 			for (int x = 0; x < dim.x; x++)
 			{
-				sProbe p;
+				sIrradianceProbe p;
 				p.local.set(x, y, z);
 
 				p.index = floor(x + y * dim.x + z * dim.x * dim.y);
 
 				p.pos = start_pos + delta * Vector3(x, y, z);
-				probes.push_back(p);
+				irradiance_probes.push_back(p);
 			}
 
 	if (!irr_fbo) {
@@ -502,18 +516,18 @@ void Renderer::computeIrradiance()
 		irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
 	}
 
-	for (auto& p: probes)
+	for (auto& p: irradiance_probes)
 	{
 		computeProbeCoeffs(p);
 	}
 
-	probes_texture = new Texture(9, probes.size(), GL_RGB, GL_FLOAT);
+	probes_texture = new Texture(9, irradiance_probes.size(), GL_RGB, GL_FLOAT);
 	SphericalHarmonics* sh_data = nullptr;
 	sh_data = new SphericalHarmonics[dim.x * dim.y * dim.z];
 
-	for (size_t i = 0; i < probes.size(); i++)
+	for (size_t i = 0; i < irradiance_probes.size(); i++)
 	{
-		sProbe p = probes.at(i);
+		sIrradianceProbe p = irradiance_probes.at(i);
 		sh_data[p.index] = p.sh;
 	}
 
@@ -526,7 +540,7 @@ void Renderer::computeIrradiance()
 	delete[] sh_data;
 }
 
-void Renderer::computeProbeCoeffs(sProbe& p)
+void Renderer::computeProbeCoeffs(sIrradianceProbe& p)
 {
 	FloatImage images[6];
 
@@ -681,6 +695,34 @@ void GTR::Renderer::renderProbes(Vector3 pos, float size, float* coeffs)
 	shader->disable();
 }
 
+void Renderer::renderReflectionProbe(sReflectionProbe* p, Camera* camera)
+{
+	
+	Shader* shader = Shader::Get("skybox");
+
+	glDisable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+
+	Matrix44 model;
+	model.setTranslation(p->pos.x, p->pos.y, p->pos.z);
+	//model.setTranslation(camera->eye.x, camera->eye.y, camera->eye.z);
+	model.scale(10.0f, 10.0f, 10.0f);
+	shader->enable();
+	shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+	shader->setUniform("u_camera_position", camera->eye);
+	shader->setUniform("u_model", model);
+	shader->setUniform("u_texture", p->cubemap, 0);
+
+	Mesh::Get("data/meshes/sphere.obj")->render(GL_TRIANGLES);
+
+	shader->disable();
+
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	
+}
+
 std::vector<Vector3> GTR::generateSpherePoints(int num,
 	float radius, bool hemi)
 {
@@ -705,4 +747,81 @@ std::vector<Vector3> GTR::generateSpherePoints(int num,
 			p.z *= -1.0;
 	}
 	return points;
+}
+
+void Renderer::renderSkybox(Camera* camera)
+{
+	if (!environment)
+		return;
+
+	Shader* shader = Shader::Get("skybox");
+
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_BLEND);
+	glDisable(GL_DEPTH_TEST);
+
+	Matrix44 model;
+	model.setTranslation(camera->eye.x, camera->eye.y, camera->eye.z);
+	model.scale(10.0, 10.0, 10.0);
+	shader->enable();
+	shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+	shader->setUniform("u_camera_position", camera->eye);
+	shader->setUniform("u_model", model);
+	shader->setUniform("u_texture", environment, 0);
+	Mesh::Get("data/meshes/sphere.obj")->render(GL_TRIANGLES);
+	shader->disable();
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+}
+
+void Renderer::computeReflection()
+{
+	for(auto probe : reflection_probes)
+	{
+		computeProbeReflection(probe);
+	}
+}
+
+void Renderer::computeProbeReflection(sReflectionProbe* p)
+{
+	Camera cam;
+	cam.setPerspective(90, 1, 0.1f, 1000.0f);
+
+	for(int i = 0; i < 6; ++i)
+	{
+		//assign cubemap face to FBO
+		reflections_fbo->setTexture(p->cubemap, i);
+
+		//bind FBO
+		reflections_fbo->bind();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		//render view
+		Vector3 eye = p->pos;
+		Vector3 center = p->pos + cubemapFaceNormals[i][2];
+		Vector3 up = cubemapFaceNormals[i][1];
+		cam.lookAt(eye, center, up);
+		cam.enable();
+		Scene::getInstance()->renderForward(&cam, this);
+		reflections_fbo->unbind();
+	}
+
+	//generate the mipmaps
+	p->cubemap->generateMipmaps();
+}
+
+Texture* GTR::CubemapFromHDRE(const char* filename)
+{
+	HDRE* hdre = new HDRE();
+	if (!hdre->load(filename))
+	{
+		delete hdre;
+		return NULL;
+	}
+
+	Texture* texture = new Texture();
+	texture->createCubemap(hdre->width, hdre->height, (Uint8**)hdre->getFaces(0), hdre->header.numChannels == 3 ? GL_RGB : GL_RGBA, GL_FLOAT);
+	for (int i = 1; i < 6; ++i)
+		texture->uploadCubemap(texture->format, texture->type, false, (Uint8**)hdre->getFaces(i), GL_RGBA32F, i);
+	return texture;
 }
