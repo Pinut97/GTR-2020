@@ -28,6 +28,7 @@ Renderer::Renderer()
 	use_light = true;
 	use_realtime_shadows = false;
 	use_irradiance = false;
+	use_reflection = true;
 
 	show_GBuffers = false;
 	show_ao = false;
@@ -276,6 +277,7 @@ void Renderer::renderDeferred(Camera* camera)
 
 	Shader* second_pass = NULL;
 	Shader* ao_shader = NULL;
+	Shader* reflection_pass = NULL;
 
 	//create fbo in case it hasn't been created before
 	if (!this->fbo)
@@ -478,6 +480,32 @@ void Renderer::renderDeferred(Camera* camera)
 			second_pass->setUniform("u_light_type", 3);
 			second_pass->setUniform("u_ambient_light", Scene::getInstance()->ambient_light
 				? Scene::getInstance()->ambientLight : Vector3(0.0f, 0.0f, 0.0f));
+		}
+
+		//REFLECTION PASS
+		if(use_reflection)
+		{
+			reflection_pass = Shader::Get("reflection");
+
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+			glEnable(GL_DEPTH_TEST);
+
+			reflection_pass->enable();
+
+			reflection_pass->setUniform("u_color_texture", fbo->color_textures[0], 0);
+			reflection_pass->setUniform("u_normal_texture", fbo->color_textures[1], 1);
+			reflection_pass->setUniform("u_metal_roughness", fbo->color_textures[2], 2);
+			reflection_pass->setUniform("u_depth_texture", this->fbo->depth_texture, 3);
+			reflection_pass->setUniform("u_reflected_texture", environment, 3);
+			reflection_pass->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+			reflection_pass->setUniform("u_camera_pos", camera->eye);
+			reflection_pass->setUniform("u_inverse_viewprojection", inverse_matrix);
+			
+			quad->render(GL_TRIANGLES);
+
+			reflection_pass->disable();
 		}
 
 		glDisable(GL_DEPTH_TEST);

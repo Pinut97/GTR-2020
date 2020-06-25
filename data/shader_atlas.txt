@@ -10,6 +10,7 @@ deferred_pospo quad.vs deferred_pospo.fs
 ssao quad.vs ssao.fs
 blur quad.vs blur.fs
 probe basic.vs probe.fs
+reflection quad.vs reflection.fs
 skybox basic.vs skybox.fs
 
 \basic.vs
@@ -650,7 +651,7 @@ void main()
 	}
 	else
 	{
-		//light *= metal;
+		light *= 1-metal;
 	}
 
 	finalColor  = light * color_texture * ao_factor;
@@ -1127,4 +1128,60 @@ void main()
 {
 	vec3 V = normalize(v_world_position - u_camera_position);
 	FragColor = textureLod( u_texture, -V, 0.0) * 1.0;
+}
+
+\reflection.fs
+
+#version 330 core
+
+precision highp float;
+
+uniform sampler2D u_reflected_texture;
+uniform sampler2D u_color_texture;
+uniform sampler2D u_normal_texture;
+uniform sampler2D u_metal_roughness_texture;
+uniform sampler2D u_depth_texture;
+uniform sampler2D u_ao_texture;
+uniform vec2 u_iRes;
+uniform mat4 u_inverse_viewprojection;
+uniform vec3 u_camera_pos;
+
+in vec2 v_uv;
+
+layout(location = 0) out vec4 FragColor;
+
+void main()
+{
+	//calculate uv using the inverse of the resolution
+	vec2 uv = gl_FragCoord.xy * u_iRes.xy;
+
+	//take color value from texture color	
+	vec3 color_texture = texture2D( u_color_texture, uv ).xyz;
+
+	//take the normal and the depth from the normal and depth texture
+	//Normal has to be converted to clip space again
+	vec3 N = texture2D( u_normal_texture, uv ).xyz;
+	N = normalize( N * 2.0 - 1.0 );
+	float depth = texture2D( u_depth_texture, uv ).x;
+
+	//reconstruct 3D scene from 2D screen position using the inverse viewprojection of the camera
+	vec4 screen_pos = vec4(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, depth * 2 - 1.0, 1.0);
+	vec4 proj_worldpos = u_inverse_viewprojection * screen_pos;
+	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
+
+	//read metal and roughness values from the metal and roughness texture
+	float metalness = texture2D( u_metal_roughness_texture, uv ).z;
+	float roughness = texture2D( u_metal_roughness_texture, uv ).y;
+	float ao_factor = texture2D( u_ao_texture, uv ).x;
+
+	vec3 V = normalize( u_camera_pos - worldpos );
+
+	vec3 R = reflect(V, N);
+
+	//compute the reflection
+	vec3 reflection = color_texture* textureLod( u_reflected_texture, R, roughness * 5.0 ).xyz;
+
+	//set the metalness as alpha
+	FragColor = vec4( reflection, metalness );
+
 }
