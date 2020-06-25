@@ -74,6 +74,7 @@ namespace GTR {
 		void computeProbeCoeffs(sIrradianceProbe& p);
 		void computeReflection();
 		void computeProbeReflection(sReflectionProbe* p);
+		int numLightsVisible();
 
 		//debug functions
 		void renderShadowMap();

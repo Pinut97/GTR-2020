@@ -403,6 +403,8 @@ void Renderer::renderDeferred(Camera* camera)
 
 		//lights pass
 		bool firstLight = true;
+		int visibleLights = numLightsVisible() - 1;
+		int currentLight = -1;
 
 		//multipass
 		for (size_t i = 0; i < Scene::getInstance()->lightEntities.size(); i++)	//pass for all lights
@@ -410,10 +412,16 @@ void Renderer::renderDeferred(Camera* camera)
 			glDisable(GL_DEPTH_TEST);
 			Light* light = Scene::getInstance()->lightEntities.at(i);
 			if (!light->visible)
+			{
 				continue;
-
+			}
+			else
+			{
+				currentLight++;
+			}
+				
 			second_pass->enable();
-			second_pass->setUniform("u_first_pass", firstLight);
+			second_pass->setUniform("u_current_total", Vector2(currentLight, visibleLights));
 
 			if (firstLight) {
 				firstLight = false;
@@ -428,6 +436,11 @@ void Renderer::renderDeferred(Camera* camera)
 				glBlendEquation(GL_FUNC_ADD);
 				assert(glGetError() == GL_NO_ERROR);
 				second_pass->setUniform("u_ambient_light", Vector3(0.0f, 0.0f, 0.0f));
+			}
+
+			if(currentLight == visibleLights)
+			{
+				second_pass->setUniform("u_environment_texture", environment);
 			}
 
 			second_pass->setUniform("u_light_type", light->light_type);
@@ -808,6 +821,19 @@ void Renderer::computeProbeReflection(sReflectionProbe* p)
 
 	//generate the mipmaps
 	p->cubemap->generateMipmaps();
+}
+
+int Renderer::numLightsVisible()
+{
+	int count = 0;
+
+	for (auto light : Scene::getInstance()->lightEntities)
+	{
+		if (light->visible)
+			count++;
+	}
+
+	return count;
 }
 
 Texture* GTR::CubemapFromHDRE(const char* filename)

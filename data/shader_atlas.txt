@@ -470,6 +470,7 @@ uniform sampler2D u_ao_texture;
 uniform vec2 u_iRes;
 uniform mat4 u_inverse_viewprojection;
 uniform vec3 u_camera_pos;
+uniform vec2 u_current_total;
 
 //light uniforms
 uniform vec3 u_ambient_light;
@@ -498,6 +499,9 @@ uniform vec3 u_irr_start;
 uniform vec3 u_irr_end;
 uniform vec3 u_irr_delta;
 uniform vec3 u_irr_dims;
+
+//reflection uniforms
+uniform samplerCube u_environment_texture;
 
 uniform mat4 u_shadow_viewprojection_array[4];	//for cascade in DIRECTIONAL
 uniform mat4 u_shadow_viewprojection;			//for PHONG only so far
@@ -610,7 +614,7 @@ void main()
 		light = direct * shadowFactor * intensity * light_color * att_factor;
 	}
 
-	if( u_first_pass ){
+	if( u_current_total.x == 0 ){
 
 		if( u_user_irr )
 		{
@@ -631,13 +635,26 @@ void main()
 		light += ambient_light;
 	}
 		
-	light *= ao_factor;
+	//light *= ao_factor;
 
-	finalColor  = light * color_texture;
+	//finalColor  = light * color_texture;
 
 	if(depth == 1)
 		discard;
 
+	if( u_current_total.x == u_current_total.y)
+	{
+		vec3 R = reflect(V, N);
+		vec3 environment = finalColor * textureLod(u_environment_texture, R, roughness * 5.0).xyz;
+		light = mix( light, environment, metal);
+	}
+	else
+	{
+		//light *= metal;
+	}
+
+	finalColor  = light * color_texture * ao_factor;
+	
 	finalColor = gamma( finalColor );
 	FragColor = vec4( finalColor, 1.0 );
 }
