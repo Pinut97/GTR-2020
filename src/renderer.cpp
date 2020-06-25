@@ -203,11 +203,10 @@ void Renderer::renderMeshWithMaterial(const Matrix44 model, Mesh* mesh, GTR::Mat
 			}
 			else {
 				glEnable(GL_BLEND);
-				Scene::getInstance()->ambientLight = Vector3(0, 0, 0);
 			}
 
 			//upload uniforms
-			shader->setUniform("u_ambient_light", Scene::getInstance()->ambientLight);
+			shader->setUniform("u_ambient_light", i == 0 ? Scene::getInstance()->ambientLight : Vector3(0, 0, 0));
 
 			shader->setUniform("u_is_cascade", light->is_cascade);
 			if (light->light_type == lightType::SPOT || !light->is_cascade)
@@ -419,8 +418,9 @@ void Renderer::renderDeferred(Camera* camera)
 			if (firstLight) {
 				firstLight = false;
 				glDisable(GL_BLEND);
-				second_pass->setUniform("u_ambient_light", Scene::getInstance()->ambient_light 
-					? Scene::getInstance()->ambientLight : Vector3(0.0f, 0.0f, 0.0f));
+				Vector3 ambient = Scene::getInstance()->ambientLight;
+				second_pass->setUniform("u_ambient_light", Scene::getInstance()->ambient_light ? 
+					Scene::getInstance()->ambientLight : Vector3(0,0,0));
 			}
 			else {
 				glEnable(GL_BLEND);

@@ -289,9 +289,9 @@ void main()
 		discard;
 
 	color_texture.xyz *= light;
-	emissive.xyz *= light;
+	//emissive.xyz *= light;
 	
-	FragColor = color_texture + emissive;
+	FragColor = color_texture; //+ emissive;
 }
 
 \multi.fs
@@ -541,7 +541,7 @@ void main()
 	vec3 color_texture = texture2D( u_color_texture, uv ).xyz;
 
 	vec3 ambient_light = u_ambient_light;
-	ambient_light = degamma( ambient_light );
+	ambient_light = degamma( u_ambient_light );
 
 	//take the normal and the depth from the normal and depth texture
 	//Normal has to be converted to clip space again
@@ -627,7 +627,7 @@ void main()
 			vec3 irradiance = ComputeSHIrradiance( N, sh );
 			light += irradiance;
 		}
-		
+
 		light += ambient_light;
 	}
 		

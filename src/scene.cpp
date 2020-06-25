@@ -12,7 +12,7 @@ Scene::Scene()
 	Matrix44 model;
 	numLightEntities = 0;
 	numPrefabEntities = 0;
-	ambientLight = Vector3(0.006f, 0.006f, 0.006f);
+	ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 	gizmoEntity = nullptr;
 	ambient_occlusion = true;
 }
@@ -115,7 +115,7 @@ void Scene::generateScene(Camera* camera) {
 	directionalLight->camera->lookAt(directionalLight->model.getTranslation(), Vector3(0,0,0),
 		Vector3(0, 1, 0));
 	directionalLight->camera->far_plane = 3000.0f;
-	directionalLight->setColor(0.015, 0.04, 0.1);
+	directionalLight->setColor(0.9, 0.9, 0.9);
 	directionalLight->intensity = 1;
 	directionalLight->target_vector = directionalLight->camera->eye;
 	directionalLight->initial_position = directionalLight->model.getTranslation() + directionalLight->target_vector;
@@ -160,15 +160,22 @@ void Scene::generateScene(Camera* camera) {
 
 void Scene::generateSecondScene(Camera* camera) 
 {
+
 	generateTerrain(1000);
 
 	//scene---------------
 	GTR::Prefab* prefab = GTR::Prefab::Get("data/prefabs/brutalism/scene.gltf");
+	GTR::Prefab* car_prefab = GTR::Prefab::Get("data/prefabs/gmc/scene.gltf");
 
 	//ENTITIES
 	PrefabEntity* building = new PrefabEntity(prefab);
 	building->model.scale(100, 100, 100);
 	this->prefabEntities.push_back(building);
+
+	PrefabEntity* car1 = new PrefabEntity(car_prefab);
+	car1->setPosition(-300, 0, 0);
+	this->prefabEntities.push_back(car1);
+	car1->model.rotate(DEG2RAD * 90, Vector3(0, -1, 0));
 
 	//LIGHTS
 	Light* light = new Light(lightType::SPOT);

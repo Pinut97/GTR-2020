@@ -74,8 +74,8 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 	Application::instance->points.resize(124);
 	//Application::instance->points = GTR::generateSpherePoints(264, 10.0f, false);
 
-	Scene::getInstance()->generateScene(camera);
-	//Scene::getInstance()->generateSecondScene(camera);
+	//Scene::getInstance()->generateScene(camera);
+	Scene::getInstance()->generateSecondScene(camera);
 	//Scene::getInstance()->generateTestScene();
 
 	renderer->computeReflection();
@@ -111,8 +111,8 @@ void Application::render(void)
 	//Rendering The Scene
 	//-------------------
 	//Scene::getInstance()->renderForward(camera, renderer);
-	Scene::getInstance()->render(camera, renderer);
-	//Scene::getInstance()->renderDeferred(camera, renderer);
+	//Scene::getInstance()->render(camera, renderer);
+	Scene::getInstance()->renderDeferred(camera, renderer);
 	//renderer->renderSkybox(camera);
 	//renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
 
