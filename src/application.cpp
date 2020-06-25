@@ -110,10 +110,12 @@ void Application::render(void)
 
 	//Rendering The Scene
 	//-------------------
-	//Scene::getInstance()->renderForward(camera, renderer);
-	//Scene::getInstance()->render(camera, renderer);
-	Scene::getInstance()->renderDeferred(camera, renderer);
-	//renderer->renderSkybox(camera);
+	if(renderer->use_deferred)
+		Scene::getInstance()->renderDeferred(camera, renderer);
+	else
+		Scene::getInstance()->render(camera, renderer);
+
+	renderer->renderSkybox(camera);
 	//renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
 
 	//Draw the floor grid, helpful to have a reference point
@@ -256,6 +258,8 @@ void Application::renderDebugGUI(void)
 {
 #ifndef SKIP_IMGUI //to block this code from compiling if we want
 
+	ImGui::ShowDemoWindow();
+
 	//System stats
 	ImGui::Text(getGPUStats().c_str());					   // Display some text (you can use a format strings too)
 
@@ -264,6 +268,8 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Grid", &render_grid);
 	ImGui::Checkbox("Real Time Shadows", &renderer->use_realtime_shadows);
 	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
+
+	ImGui::Checkbox("Use Deferred", &renderer->use_deferred);
 
 	ImGui::Checkbox("Show AO", &renderer->show_ao);
 	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);

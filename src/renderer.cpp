@@ -28,6 +28,7 @@ Renderer::Renderer()
 	use_light = true;
 	use_realtime_shadows = false;
 	use_irradiance = false;
+	use_deferred = true;
 
 	show_GBuffers = false;
 	show_ao = false;
