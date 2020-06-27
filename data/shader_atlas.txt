@@ -527,7 +527,8 @@ float computeShadowFactor( in int type, in vec3 worldpos );
 float calcShadowFactor( in vec3 worldpos );
 
 //IRRADIANCE
-float getIrradianceRow( in vec3 worldpos, in vec3 N );
+vec3 computeIrradiance( in vec3 indices, in vec3 N );
+vec3 getIrradiance( in vec3 worldpos, in vec3 N );
 vec3 ComputeSHIrradiance(in vec3 normal, in SH9Color sh);
 void SHCosineLobe(in vec3 dir, out SH9 sh); //SH9
 
@@ -624,17 +625,8 @@ void main()
 
 		if( u_user_irr )
 		{
-			float row_uv = getIrradianceRow( worldpos, N );
-			const float d_uvx = 1.0 / 9.0;
-			
-			for(int i = 0; i < 9; ++i)
-			{
-				vec2 coeffs_uv = vec2( (float(i)+0.5) * d_uvx, row_uv );
-				sh.c[i] = texture( u_irr_texture, coeffs_uv).xyz;
-			}
-
 			//now we can use the coefficients to compute the irradiance
-			vec3 irradiance = ComputeSHIrradiance( N, sh );
+			vec3 irradiance = getIrradiance( worldpos, N );
 			light += irradiance;
 		}
 
@@ -678,28 +670,89 @@ vec3 ComputeSHIrradiance(in vec3 normal, in SH9Color sh)
 	return irradiance;
 }
 
-float getIrradianceRow( in vec3 worldpos, in vec3 N )
+vec3 getIrradiance( in vec3 worldpos, in vec3 N )
 {
 	//computing nearest probe index based on world position
 	vec3 irr_range = u_irr_end - u_irr_start;
 	vec3 irr_local_pos = clamp( worldpos - u_irr_start 
-	+ N * 1.0, //offset a little
+	+ N * u_irr_delta * 0.5, //offset a little
 	vec3(0.0), irr_range );
 
 	//convert from world pos to grid pos
 	vec3 irr_norm_pos = irr_local_pos / u_irr_delta;
 
 	//round values as we cannot fetch between rows for now
-	vec3 local_indices = round( irr_norm_pos );
+	vec3 local_indices = floor( irr_norm_pos );
 
+	//interpolation factors
+	vec3 factors = irr_norm_pos - local_indices;
+
+	vec3 indicesLBF = local_indices;
+	vec3 indicesRBF = local_indices;
+	vec3 indicesLTF = local_indices;
+	vec3 indicesRTF = local_indices;
+	vec3 indicesLBN = local_indices;
+	vec3 indicesRBN = local_indices;
+	vec3 indicesLTN = local_indices;
+	vec3 indicesRTN = local_indices;
+
+	//far face
+	indicesRBF.x += 1;
+	indicesLTF.y += 1;
+	indicesRTF.x += 1;
+	indicesRTF.y += 1;
+
+	//near face
+	indicesLBN.z += 1;
+	indicesRBN.x += 1;
+	indicesRBN.z += 1;
+	indicesLTN.z += 1;
+	indicesLTN.y += 1;
+	indicesRTN.z += 1;
+	indicesRTN.x += 1;
+	indicesRTN.y += 1;
+
+	vec3 irrLBF = computeIrradiance( indicesLBF, N );
+	vec3 irrRBF = computeIrradiance( indicesRBF, N );
+	vec3 irrLTF = computeIrradiance( indicesLTF, N );
+	vec3 irrRTF = computeIrradiance( indicesRTF, N );
+	vec3 irrLBN = computeIrradiance( indicesLBN, N );
+	vec3 irrRBN = computeIrradiance( indicesRBN, N );
+	vec3 irrLTN = computeIrradiance( indicesLTN, N );
+	vec3 irrRTN = computeIrradiance( indicesRTN, N );
+
+	vec3 irrTF = mix( irrLTF, irrRTF, factors.x );
+	vec3 irrBF = mix( irrLBF, irrRBF, factors.x );
+	vec3 irrTN = mix( irrLTN, irrRTN, factors.x );
+	vec3 irrBN = mix( irrLBN, irrRBN, factors.x );
+
+	vec3 irrT = mix( irrTF, irrTN, factors.z );
+	vec3 irrB = mix( irrBF, irrBN, factors.z );
+
+	vec3 irr = mix( irrT, irrB, factors.y );
+	return irr;
+}
+
+vec3 computeIrradiance( in vec3 indices, in vec3 N )
+{
 	//compute in which row is the probe stored
-	float row = local_indices.x + 
-	local_indices.y * u_irr_dims.x + 
-	local_indices.z * u_irr_dims.x * u_irr_dims.y;
+	float row = indices.x + 
+	indices.y * u_irr_dims.x + 
+	indices.z * u_irr_dims.x * u_irr_dims.y;
 
 	//find the UV.y coord of that row in the probes texture
 	float row_uv = (row + 1.0) / (u_irr_dims.x*u_irr_dims.y*u_irr_dims.z + 1.0);
-	return row_uv;
+	const float d_uvx = 1.0 / 9.0;
+
+	SH9Color sh;
+
+	for(int i = 0; i < 9; ++i)
+	{
+		vec2 coeffs_uv = vec2( (float(i)+0.5) * d_uvx, row_uv );
+		sh.c[i] = texture( u_irr_texture, coeffs_uv).xyz;
+	}
+
+	return ComputeSHIrradiance( N, sh );
 }
 
 void SHCosineLobe(in vec3 dir, out SH9 sh) //SH9
