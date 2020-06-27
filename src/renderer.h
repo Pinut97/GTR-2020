@@ -66,14 +66,12 @@ namespace GTR {
 		std::vector<Vector3> points;
 		std::vector<sIrradianceProbe> irradiance_probes;
 		std::vector<sReflectionProbe*> reflection_probes;
-		sIrrHeader irr_header;
 
 		Vector3 irr_start_pos;
 		Vector3 irr_end_pos;
 		Vector3 irr_dim;
 		Vector3 irr_delta;
-
-		const int probes_size = 10;
+		int irr_num_probes;
 
 		Renderer();
 
@@ -86,11 +84,12 @@ namespace GTR {
 		void computeReflection();
 		void computeProbeReflection(sReflectionProbe* p);
 		int numLightsVisible();
+		bool loadIrradiance(const char* filename);
 
 		//debug functions
 		void renderShadowMap();
 		void renderGBuffers(Camera* camera);
-		void renderProbes(Vector3 pos, float size, float* coeffs);
+		void renderIrradianceProbes(Vector3 pos, float size, float* coeffs);
 		void renderReflectionProbe(sReflectionProbe* p, Camera* camera);
 	
 		//to render a whole prefab (with all its nodes)

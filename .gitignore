@@ -39,6 +39,7 @@ data/panorama.hdre
 data/meshes/
 data/prefabs/
 data/textures/
+irradiance.bin
 imgui.ini
 visualstudio/
 xcode/

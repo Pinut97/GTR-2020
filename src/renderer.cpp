@@ -50,17 +50,12 @@ Renderer::Renderer()
 	irr_start_pos = Vector3(-350, 10, -350);
 	irr_end_pos = Vector3(400, 250, 130);
 	irr_dim = Vector3(8, 6, 12);
+	irr_num_probes = irr_dim.x * irr_dim.y * irr_dim.z;
 
 	irr_delta = (irr_end_pos - irr_start_pos);
 	irr_delta.x /= irr_dim.x - 1;
 	irr_delta.y /= irr_dim.y - 1;
 	irr_delta.z /= irr_dim.z - 1;
-	
-	irr_header.start = irr_start_pos;
-	irr_header.end = irr_end_pos;
-	irr_header.dims = irr_dim;
-	irr_header.delta = irr_delta;
-	irr_header.num_probes = irr_dim.x * irr_dim.y * irr_dim.z;
 
 	irr_fbo = new FBO();
 	irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
@@ -539,7 +534,7 @@ void Renderer::renderDeferred(Camera* camera)
 	if (show_irr_probes)
 	{
 		for each (sIrradianceProbe p in irradiance_probes)
-			renderProbes(p.pos, 5.0f, (float*)&p.sh);
+			renderIrradianceProbes(p.pos, 5.0f, (float*)&p.sh);
 	}
 	if (show_reflection_probes)
 	{
@@ -586,13 +581,25 @@ void Renderer::computeIrradiance()
 		sh_data[p.index] = p.sh;
 	}
 
-	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
+	sIrrHeader irr_header;
+	irr_header.start = irr_start_pos;
+	irr_header.end = irr_end_pos;
+	irr_header.dims = irr_dim;
+	irr_header.delta = irr_delta;
+	irr_header.num_probes = irr_dim.x * irr_dim.y * irr_dim.z;
 
-	probes_texture->bind();
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	FILE* f = fopen("irradiance.bin", "wb");
+	fwrite(&irr_header, sizeof(sIrrHeader), 1, f);
+	fwrite(&sh_data[0], sizeof(SphericalHarmonics), irradiance_probes.size(), f);
+	fclose(f);
 
-	delete[] sh_data;
+	//probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
+	//
+	//probes_texture->bind();
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	//
+	//delete[] sh_data;
 }
 
 void Renderer::computeProbeCoeffs(sIrradianceProbe& p)
@@ -735,7 +742,7 @@ void Renderer::renderMeshInDeferred(const Matrix44 model, Mesh* mesh, GTR::Mater
 
 }
 
-void GTR::Renderer::renderProbes(Vector3 pos, float size, float* coeffs)
+void GTR::Renderer::renderIrradianceProbes(Vector3 pos, float size, float* coeffs)
 {
 	Camera* camera = Camera::current;
 	Shader* shader = Shader::Get("probe");
@@ -896,4 +903,47 @@ Texture* GTR::CubemapFromHDRE(const char* filename)
 	for (int i = 1; i < 6; ++i)
 		texture->uploadCubemap(texture->format, texture->type, false, (Uint8**)hdre->getFaces(i), GL_RGBA32F, i);
 	return texture;
+}
+
+bool Renderer::loadIrradiance(const char* filename)
+{
+	FILE* f = fopen(filename, "rb");
+	if (!f)
+		return false;
+
+	sIrrHeader header;
+	fread(&header, sizeof(header), 1, f);
+	irr_start_pos = header.start;
+	irr_end_pos = header.end;
+	irr_delta = header.delta;
+	irr_dim = header.dims;
+	irr_num_probes = header.num_probes;
+
+	SphericalHarmonics* sh_data = new SphericalHarmonics[irr_dim.x * irr_dim.y * irr_dim.z];
+
+	fread(&sh_data[0], sizeof(SphericalHarmonics), irr_dim.x * irr_dim.y * irr_dim.z, f);
+	fclose(f);
+
+	irradiance_probes.clear();
+
+	for (int z = 0; z < irr_dim.z; z++)
+		for (int y = 0; y < irr_dim.y; y++)
+			for (int x = 0; x < irr_dim.x; x++)
+			{
+				sIrradianceProbe p;
+				p.local.set(x, y, z);
+				p.index = floor(x + y * irr_dim.x + z * irr_dim.x * irr_dim.y);
+				p.pos = irr_start_pos + irr_delta * Vector3(x, y, z);
+				int index = floor(x + y * irr_dim.x + z * irr_dim.x * irr_dim.y);
+				p.sh = sh_data[index];
+				irradiance_probes.push_back(p);
+			}
+
+	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
+
+	probes_texture->bind();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	delete[] sh_data;
 }
