@@ -10,6 +10,7 @@ deferred_pospo quad.vs deferred_pospo.fs
 ssao quad.vs ssao.fs
 blur quad.vs blur.fs
 probe basic.vs probe.fs
+reflection quad.vs reflection.fs
 skybox basic.vs skybox.fs
 
 \basic.vs
@@ -411,6 +412,8 @@ void main()
 
 uniform sampler2D u_color_texture;
 uniform sampler2D u_metal_roughness_texture;
+uniform float u_metallic_factor;
+uniform float u_roughness_factor;
 uniform vec4 u_color;
 
 in vec3 v_normal;
@@ -435,14 +438,17 @@ void main()
 	texture.xyz = degamma( texture.xyz );
 	color *= texture;
 
-	vec4 roughness = texture2D( u_metal_roughness_texture, v_uv );
-	roughness.xyz = degamma( roughness.xyz );
+	vec4 metal_roughness = texture2D( u_metal_roughness_texture, v_uv );
+	metal_roughness.z *= u_metallic_factor;
+	metal_roughness.y *= u_roughness_factor;
+
+	//roughness.xyz = degamma( roughness.xyz );
 
 	//return values
 	FragColor = color;
 	//FragColor = vec4(degamma( texture.xyz ),1);
 	FragNormal = N;
-	ExtraColor = roughness;	//for specular maybe?
+	ExtraColor = metal_roughness;	//for specular maybe?
 }
 
 vec3 degamma(vec3 c)
@@ -470,6 +476,7 @@ uniform sampler2D u_ao_texture;
 uniform vec2 u_iRes;
 uniform mat4 u_inverse_viewprojection;
 uniform vec3 u_camera_pos;
+uniform vec2 u_current_total;
 
 //light uniforms
 uniform vec3 u_ambient_light;
@@ -498,6 +505,9 @@ uniform vec3 u_irr_start;
 uniform vec3 u_irr_end;
 uniform vec3 u_irr_delta;
 uniform vec3 u_irr_dims;
+
+//reflection uniforms
+uniform samplerCube u_environment_texture;
 
 uniform mat4 u_shadow_viewprojection_array[4];	//for cascade in DIRECTIONAL
 uniform mat4 u_shadow_viewprojection;			//for PHONG only so far
@@ -611,7 +621,7 @@ void main()
 		light = direct * shadowFactor * intensity * light_color * att_factor;
 	}
 
-	if( u_first_pass ){
+	if( u_current_total.x == 0 ){
 
 		if( u_user_irr )
 		{
@@ -623,13 +633,26 @@ void main()
 		light += ambient_light;
 	}
 		
-	light *= ao_factor;
+	//light *= ao_factor;
 
-	finalColor  = light * color_texture;
+	//finalColor  = light * color_texture;
 
 	if(depth == 1)
 		discard;
 
+	if( u_current_total.x == u_current_total.y)
+	{
+		vec3 R = reflect(V, N);
+		vec3 environment = finalColor * textureLod(u_environment_texture, R, roughness * 5.0).xyz;
+		light = mix( light, environment, metal);
+	}
+	else
+	{
+		light *= 1-metal;
+	}
+
+	finalColor  = light * color_texture * ao_factor;
+	
 	finalColor = gamma( finalColor );
 	FragColor = vec4( finalColor, 1.0 );
 }
@@ -1163,4 +1186,80 @@ void main()
 {
 	vec3 V = normalize(v_world_position - u_camera_position);
 	FragColor = textureLod( u_texture, -V, 0.0) * 1.0;
+}
+
+\reflection.fs
+
+#version 330 core
+
+uniform samplerCube u_environment_texture;
+uniform samplerCube u_reflection_texture_1;
+uniform samplerCube u_reflection_texture_2;
+uniform vec3 u_probe_1_pos;
+uniform vec3 u_probe_2_pos;
+uniform sampler2D u_normal_texture;
+uniform sampler2D u_metal_roughness_texture;
+uniform sampler2D u_depth_texture;
+uniform sampler2D u_ao_texture;
+uniform vec2 u_iRes;
+uniform mat4 u_inverse_viewprojection;
+uniform vec3 u_camera_pos;
+
+in vec2 v_uv;
+
+layout(location = 0) out vec4 FragColor;
+
+const float MAX_DIST = 100.0f;
+
+void main()
+{
+	//calculate uv using the inverse of the resolution
+	vec2 uv = gl_FragCoord.xy * u_iRes.xy;
+
+	//take the normal and the depth from the normal and depth texture
+	//Normal has to be converted to clip space again
+	vec3 N = texture2D( u_normal_texture, uv ).xyz;
+	N = normalize( N * 2.0 - 1.0 );
+	float depth = texture2D( u_depth_texture, uv ).x;
+
+	if(depth == 1)
+		discard;
+
+	//reconstruct 3D scene from 2D screen position using the inverse viewprojection of the camera
+	vec4 screen_pos = vec4(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, depth * 2 - 1.0, 1.0);
+	vec4 proj_worldpos = u_inverse_viewprojection * screen_pos;
+	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
+
+	float dist_probe_1 = length(u_probe_1_pos - worldpos);
+	float dist_probe_2 = length(u_probe_2_pos - worldpos);
+
+	//read metal and roughness values from the metal and roughness texture
+	float metalness = texture2D( u_metal_roughness_texture, uv ).z;
+	float roughness = texture2D( u_metal_roughness_texture, uv ).y;
+
+	vec3 V = normalize( u_camera_pos - worldpos );
+
+	vec3 R = reflect(V, N);
+
+	vec3 reflection = vec3(0.0);
+
+	if(dist_probe_1 < dist_probe_2 && dist_probe_1 < MAX_DIST)
+	{
+		reflection = textureLod( u_reflection_texture_1, R, roughness * 5.0 ).xyz;
+	}
+	else if(dist_probe_2 < dist_probe_1 && dist_probe_2 < MAX_DIST)
+	{
+		reflection = textureLod( u_reflection_texture_2, R, roughness * 5.0 ).xyz;
+	}
+	else
+	{
+		reflection = textureLod( u_environment_texture, R, roughness * 5.0 ).xyz;
+	}
+
+	//compute the reflection
+	//vec3 reflection = textureLod( reflected_texture, R, roughness * 5.0 ).xyz;
+
+	//set the metalness as alpha
+	FragColor = vec4( reflection, metalness );
+
 }

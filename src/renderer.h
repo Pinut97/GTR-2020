@@ -44,6 +44,7 @@ namespace GTR {
 		bool use_light;
 		bool use_realtime_shadows;
 		bool use_irradiance;
+		bool use_reflection;
 		bool use_deferred;
 
 		bool show_GBuffers;
@@ -83,6 +84,7 @@ namespace GTR {
 		void computeProbeCoeffs(sIrradianceProbe& p);
 		void computeReflection();
 		void computeProbeReflection(sReflectionProbe* p);
+		int numLightsVisible();
 
 		//debug functions
 		void renderShadowMap();
