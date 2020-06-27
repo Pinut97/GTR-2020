@@ -50,8 +50,9 @@ namespace GTR {
 		bool show_GBuffers;
 		bool show_ao;
 		bool show_deferred;
-		bool show_probes;
+		bool show_irr_probes;
 		bool show_irradiance;
+		bool show_reflection_probes;
 		bool show_probe_coefficients_texture;
 
 		FBO* fbo;

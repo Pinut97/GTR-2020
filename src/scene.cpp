@@ -169,12 +169,13 @@ void Scene::generateSecondScene(Camera* camera)
 
 	//ENTITIES
 	PrefabEntity* building = new PrefabEntity(prefab);
+	building->setPosition(0, 10, 0);
 	building->model.scale(100, 100, 100);
 	this->prefabEntities.push_back(building);
 
 	PrefabEntity* car1 = new PrefabEntity(car_prefab);
 	car1->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
-	car1->setPosition(-300, 0, 0);
+	car1->setPosition(-300, -2.5, 0);
 	this->prefabEntities.push_back(car1);
 	car1->model.rotate(DEG2RAD * 90, Vector3(0, -1, 0));
 

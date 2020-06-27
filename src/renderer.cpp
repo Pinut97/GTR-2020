@@ -34,7 +34,7 @@ Renderer::Renderer()
 	show_GBuffers = false;
 	show_ao = false;
 	show_deferred = true;
-	show_probes = false;
+	show_irr_probes = false;
 	show_irradiance = false;
 	show_probe_coefficients_texture = false;
 
@@ -536,15 +536,16 @@ void Renderer::renderDeferred(Camera* camera)
 	if (show_ao && blur_texture != nullptr)
 		blur_texture->toViewport();
 
-	if (show_probes)
+	if (show_irr_probes)
 	{
 		for each (sIrradianceProbe p in irradiance_probes)
 			renderProbes(p.pos, 5.0f, (float*)&p.sh);
 	}
-
-	if(true)
+	if (show_reflection_probes)
 	{
+		glDisable(GL_DEPTH_TEST);
 		renderReflectionProbe(reflection_probes[0], camera);
+		renderReflectionProbe(reflection_probes[1], camera);
 	}
 }
 

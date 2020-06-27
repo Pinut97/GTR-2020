@@ -80,9 +80,6 @@ Application::Application(int window_width, int window_height, SDL_Window* window
 
 	renderer->computeReflection();
 
-	//testing purposes
-	PrefabEntity* car = new PrefabEntity(prefab);
-
 	Scene::getInstance()->generateDepthMap(renderer, camera);
 
 	//hide the cursor
@@ -115,17 +112,11 @@ void Application::render(void)
 	else
 		Scene::getInstance()->render(camera, renderer);
 
-	renderer->renderSkybox(camera);
-	//renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
-
 	//Draw the floor grid, helpful to have a reference point
 	if (render_debug && render_grid)
 		drawGrid();
 
-	glDisable(GL_DEPTH_TEST);
-	renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
-	renderer->renderReflectionProbe(renderer->reflection_probes[1], camera);
-	//renderer->reflections_fbo->color_textures[0]->toViewport();
+
 	//render anything in the gui after this
 
 	//the swap buffers is done in the main loop after this function
@@ -274,7 +265,8 @@ void Application::renderDebugGUI(void)
 
 	ImGui::Checkbox("Show AO", &renderer->show_ao);
 	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);
-	ImGui::Checkbox("Show Probes", &renderer->show_probes);
+	ImGui::Checkbox("Show Irradiance Probes", &renderer->show_irr_probes);
+	ImGui::Checkbox("Show Reflection Probes", &renderer->show_reflection_probes);
 	ImGui::Checkbox("Show Probe Coefficients Texture", &renderer->show_probe_coefficients_texture);
 
 	//add info to the debug panel about the camera
