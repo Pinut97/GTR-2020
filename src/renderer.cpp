@@ -592,14 +592,6 @@ void Renderer::computeIrradiance()
 	fwrite(&irr_header, sizeof(sIrrHeader), 1, f);
 	fwrite(&sh_data[0], sizeof(SphericalHarmonics), irradiance_probes.size(), f);
 	fclose(f);
-
-	//probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
-	//
-	//probes_texture->bind();
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	//
-	//delete[] sh_data;
 }
 
 void Renderer::computeProbeCoeffs(sIrradianceProbe& p)
