@@ -15,6 +15,7 @@ Scene::Scene()
 	ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 	gizmoEntity = nullptr;
 	ambient_occlusion = true;
+	ambient_light = true;
 }
 
 void Scene::render(Camera* camera, GTR::Renderer* renderer) {
