@@ -46,20 +46,23 @@ Renderer::Renderer()
 	points.resize(64);
 	points = GTR::generateSpherePoints(64, 1.0f, true);
 
-	start_pos = Vector3(-55, 10, -170);
-	end_pos = Vector3(250, 200, 150);
-	dim = Vector3(5, 5, 5);
+	irr_start_pos = Vector3(-350, 10, -350);
+	irr_end_pos = Vector3(400, 250, 130);
+	irr_dim = Vector3(8, 6, 12);
 
-	delta = (end_pos - start_pos);
-	delta.x /= dim.x - 1;
-	delta.y /= dim.y - 1;
-	delta.z /= dim.z - 1;
+	irr_delta = (irr_end_pos - irr_start_pos);
+	irr_delta.x /= irr_dim.x - 1;
+	irr_delta.y /= irr_dim.y - 1;
+	irr_delta.z /= irr_dim.z - 1;
+	
+	irr_header.start = irr_start_pos;
+	irr_header.end = irr_end_pos;
+	irr_header.dims = irr_dim;
+	irr_header.delta = irr_delta;
+	irr_header.num_probes = irr_dim.x * irr_dim.y * irr_dim.z;
 
 	irr_fbo = new FBO();
 	irr_fbo->create(64, 64, 1, GL_RGB, GL_FLOAT);
-
-	aux_fbo = new FBO();
-	aux_fbo->create(512, 512, 1, GL_RGB, GL_FLOAT);
 
 	reflections_fbo = new FBO();
 
@@ -396,10 +399,10 @@ void Renderer::renderDeferred(Camera* camera)
 		{
 			//irradiance pass
 			second_pass->setUniform("u_irr_texture", probes_texture, 5);
-			second_pass->setUniform("u_irr_start", start_pos);
-			second_pass->setUniform("u_irr_end", end_pos);
-			second_pass->setUniform("u_irr_delta", delta);
-			second_pass->setUniform("u_irr_dims", dim);
+			second_pass->setUniform("u_irr_start", irr_start_pos);
+			second_pass->setUniform("u_irr_end", irr_end_pos);
+			second_pass->setUniform("u_irr_delta", irr_delta);
+			second_pass->setUniform("u_irr_dims", irr_dim);
 		}
 
 		//lights pass
@@ -486,7 +489,7 @@ void Renderer::renderDeferred(Camera* camera)
 	if (show_probes)
 	{
 		for each (sIrradianceProbe p in irradiance_probes)
-			renderProbes(p.pos, 10.0f, (float*)&p.sh);
+			renderProbes(p.pos, 5.0f, (float*)&p.sh);
 	}
 
 	if(true)
@@ -499,16 +502,16 @@ void Renderer::computeIrradiance()
 {
 	irradiance_probes.clear();
 
-	for(int z = 0; z < dim.z; z++)
-		for(int y = 0; y < dim.y; y++)
-			for (int x = 0; x < dim.x; x++)
+	for(int z = 0; z < irr_dim.z; z++)
+		for(int y = 0; y < irr_dim.y; y++)
+			for (int x = 0; x < irr_dim.x; x++)
 			{
 				sIrradianceProbe p;
 				p.local.set(x, y, z);
 
-				p.index = floor(x + y * dim.x + z * dim.x * dim.y);
+				p.index = floor(x + y * irr_dim.x + z * irr_dim.x * irr_dim.y);
 
-				p.pos = start_pos + delta * Vector3(x, y, z);
+				p.pos = irr_start_pos + irr_delta * Vector3(x, y, z);
 				irradiance_probes.push_back(p);
 			}
 
@@ -524,7 +527,7 @@ void Renderer::computeIrradiance()
 
 	probes_texture = new Texture(9, irradiance_probes.size(), GL_RGB, GL_FLOAT);
 	SphericalHarmonics* sh_data = nullptr;
-	sh_data = new SphericalHarmonics[dim.x * dim.y * dim.z];
+	sh_data = new SphericalHarmonics[irr_dim.x * irr_dim.y * irr_dim.z];
 
 	for (size_t i = 0; i < irradiance_probes.size(); i++)
 	{

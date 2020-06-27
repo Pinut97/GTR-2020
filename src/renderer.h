@@ -18,6 +18,14 @@ struct sReflectionProbe {
 	Texture* cubemap = NULL;
 };
 
+struct sIrrHeader {
+	Vector3 start;
+	Vector3 end;
+	Vector3 delta;
+	Vector3 dims;
+	int num_probes;
+};
+
 namespace GTR {
 
 	class Prefab;
@@ -52,16 +60,16 @@ namespace GTR {
 		Texture* blur_texture;
 		Texture* probes_texture;
 		Texture* environment;
-		FBO* aux_fbo;
 
 		std::vector<Vector3> points;
 		std::vector<sIrradianceProbe> irradiance_probes;
 		std::vector<sReflectionProbe*> reflection_probes;
+		sIrrHeader irr_header;
 
-		Vector3 start_pos;
-		Vector3 end_pos;
-		Vector3 dim;
-		Vector3 delta;
+		Vector3 irr_start_pos;
+		Vector3 irr_end_pos;
+		Vector3 irr_dim;
+		Vector3 irr_delta;
 
 		const int probes_size = 10;
 
