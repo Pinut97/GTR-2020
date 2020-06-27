@@ -64,12 +64,19 @@ Renderer::Renderer()
 	reflections_fbo = new FBO();
 
 	//create reflexion probes
-	sReflectionProbe* probe = new sReflectionProbe;
+	sReflectionProbe* reflection_probe_1 = new sReflectionProbe;
 
-	probe->pos.set(100, 150, -100);
-	probe->cubemap = new Texture();
-	probe->cubemap->createCubemap(512, 512, NULL, GL_RGB, GL_UNSIGNED_INT, false);
-	reflection_probes.push_back(probe);
+	reflection_probe_1->pos.set(180, 100, -225);
+	reflection_probe_1->cubemap = new Texture();
+	reflection_probe_1->cubemap->createCubemap(512, 512, NULL, GL_RGB, GL_UNSIGNED_INT, false);
+	reflection_probes.push_back(reflection_probe_1);
+
+	sReflectionProbe* reflection_probe_2 = new sReflectionProbe;
+
+	reflection_probe_2->pos.set(180, 85, 5);
+	reflection_probe_2->cubemap = new Texture();
+	reflection_probe_2->cubemap->createCubemap(512, 512, NULL, GL_RGB, GL_UNSIGNED_INT, false);
+	reflection_probes.push_back(reflection_probe_2);
 }
 
 //renders all the prefab
@@ -422,7 +429,6 @@ void Renderer::renderDeferred(Camera* camera)
 				currentLight++;
 			}
 				
-			second_pass->enable();
 			second_pass->setUniform("u_current_total", Vector2(currentLight, visibleLights));
 
 			if (firstLight) {
@@ -467,11 +473,10 @@ void Renderer::renderDeferred(Camera* camera)
 					light->shadowMap : Texture::getWhiteTexture(), 6);
 			}
 
-			second_pass->enable();
 			quad->render(GL_TRIANGLES);	//render with blending for each light
 
-
 		}
+		
 		//in case there is no lights, render the quad
 		if (Scene::getInstance()->lightEntities.empty())
 		{
@@ -482,37 +487,41 @@ void Renderer::renderDeferred(Camera* camera)
 				? Scene::getInstance()->ambientLight : Vector3(0.0f, 0.0f, 0.0f));
 		}
 
-		//REFLECTION PASS
-		if(use_reflection)
-		{
-			reflection_pass = Shader::Get("reflection");
+		second_pass->disable();
 
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			glEnable(GL_DEPTH_TEST);
-
-			reflection_pass->enable();
-
-			reflection_pass->setUniform("u_color_texture", fbo->color_textures[0], 0);
-			reflection_pass->setUniform("u_normal_texture", fbo->color_textures[1], 1);
-			reflection_pass->setUniform("u_metal_roughness", fbo->color_textures[2], 2);
-			reflection_pass->setUniform("u_depth_texture", this->fbo->depth_texture, 3);
-			reflection_pass->setUniform("u_reflected_texture", environment, 3);
-			reflection_pass->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
-			reflection_pass->setUniform("u_camera_pos", camera->eye);
-			reflection_pass->setUniform("u_inverse_viewprojection", inverse_matrix);
-			
-			quad->render(GL_TRIANGLES);
-
-			reflection_pass->disable();
-		}
-
-		glDisable(GL_DEPTH_TEST);
-		glDisable(GL_BLEND);
 	}
 
-	second_pass->disable();
+	//REFLECTION PASS
+	if (use_reflection)
+	{
+		reflection_pass = Shader::Get("reflection");
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glEnable(GL_DEPTH_TEST);
+
+		reflection_pass->enable();
+
+		reflection_pass->setUniform("u_normal_texture", fbo->color_textures[1], 0);
+		reflection_pass->setUniform("u_metal_roughness_texture", fbo->color_textures[2], 1);
+		reflection_pass->setUniform("u_depth_texture", this->fbo->depth_texture, 2);
+		reflection_pass->setUniform("u_environment_texture", environment, 3);
+		reflection_pass->setUniform("u_reflection_texture_1", reflection_probes[0]->cubemap, 4);
+		reflection_pass->setUniform("u_reflection_texture_2", reflection_probes[1]->cubemap, 5);
+		reflection_pass->setUniform("u_probe_1_pos", reflection_probes[0]->pos);
+		reflection_pass->setUniform("u_probe_2_pos", reflection_probes[1]->pos);
+		reflection_pass->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+		reflection_pass->setUniform("u_camera_pos", camera->eye);
+		reflection_pass->setUniform("u_inverse_viewprojection", inverse_matrix);
+
+		quad->render(GL_TRIANGLES);
+
+		reflection_pass->disable();
+	}
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
 
 	renderShadowMap();
 	renderGBuffers(camera);
@@ -703,6 +712,10 @@ void Renderer::renderMeshInDeferred(const Matrix44 model, Mesh* mesh, GTR::Mater
 	shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
 	shader->setUniform("u_camera_pos", camera->eye);
 
+	//metal and roughness factors
+	shader->setUniform("u_metallic_factor", material->metallic_factor);
+	shader->setUniform("u_roughness_factor", material->roughness_factor);
+
 	//object uniforms
 	material->color = vec4(1.0, 1.0, 1.0, 1.0);
 	shader->setUniform("u_color", material->color);
@@ -843,7 +856,7 @@ void Renderer::computeProbeReflection(sReflectionProbe* p)
 		Vector3 up = cubemapFaceNormals[i][1];
 		cam.lookAt(eye, center, up);
 		cam.enable();
-		Scene::getInstance()->renderForward(&cam, this);
+		Scene::getInstance()->render(&cam, this);
 		reflections_fbo->unbind();
 	}
 

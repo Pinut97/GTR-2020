@@ -412,6 +412,8 @@ void main()
 
 uniform sampler2D u_color_texture;
 uniform sampler2D u_metal_roughness_texture;
+uniform float u_metallic_factor;
+uniform float u_roughness_factor;
 uniform vec4 u_color;
 
 in vec3 v_normal;
@@ -436,14 +438,17 @@ void main()
 	texture.xyz = degamma( texture.xyz );
 	color *= texture;
 
-	vec4 roughness = texture2D( u_metal_roughness_texture, v_uv );
-	roughness.xyz = degamma( roughness.xyz );
+	vec4 metal_roughness = texture2D( u_metal_roughness_texture, v_uv );
+	metal_roughness.z *= u_metallic_factor;
+	metal_roughness.y *= u_roughness_factor;
+
+	//roughness.xyz = degamma( roughness.xyz );
 
 	//return values
 	FragColor = color;
 	//FragColor = vec4(degamma( texture.xyz ),1);
 	FragNormal = N;
-	ExtraColor = roughness;	//for specular maybe?
+	ExtraColor = metal_roughness;	//for specular maybe?
 }
 
 vec3 degamma(vec3 c)
@@ -1134,8 +1139,11 @@ void main()
 
 #version 330 core
 
-uniform samplerCube u_reflected_texture;
-uniform sampler2D u_color_texture;
+uniform samplerCube u_environment_texture;
+uniform samplerCube u_reflection_texture_1;
+uniform samplerCube u_reflection_texture_2;
+uniform vec3 u_probe_1_pos;
+uniform vec3 u_probe_2_pos;
 uniform sampler2D u_normal_texture;
 uniform sampler2D u_metal_roughness_texture;
 uniform sampler2D u_depth_texture;
@@ -1148,13 +1156,12 @@ in vec2 v_uv;
 
 layout(location = 0) out vec4 FragColor;
 
+const float MAX_DIST = 100.0f;
+
 void main()
 {
 	//calculate uv using the inverse of the resolution
 	vec2 uv = gl_FragCoord.xy * u_iRes.xy;
-
-	//take color value from texture color	
-	vec3 color_texture = texture2D( u_color_texture, uv ).xyz;
 
 	//take the normal and the depth from the normal and depth texture
 	//Normal has to be converted to clip space again
@@ -1170,17 +1177,34 @@ void main()
 	vec4 proj_worldpos = u_inverse_viewprojection * screen_pos;
 	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
 
+	float dist_probe_1 = length(u_probe_1_pos - worldpos);
+	float dist_probe_2 = length(u_probe_2_pos - worldpos);
+
 	//read metal and roughness values from the metal and roughness texture
 	float metalness = texture2D( u_metal_roughness_texture, uv ).z;
 	float roughness = texture2D( u_metal_roughness_texture, uv ).y;
-	float ao_factor = texture2D( u_ao_texture, uv ).x;
 
 	vec3 V = normalize( u_camera_pos - worldpos );
 
 	vec3 R = reflect(V, N);
 
+	vec3 reflection = vec3(0.0);
+
+	if(dist_probe_1 < dist_probe_2 && dist_probe_1 < MAX_DIST)
+	{
+		reflection = textureLod( u_reflection_texture_1, R, roughness * 5.0 ).xyz;
+	}
+	else if(dist_probe_2 < dist_probe_1 && dist_probe_2 < MAX_DIST)
+	{
+		reflection = textureLod( u_reflection_texture_2, R, roughness * 5.0 ).xyz;
+	}
+	else
+	{
+		reflection = textureLod( u_environment_texture, R, roughness * 5.0 ).xyz;
+	}
+
 	//compute the reflection
-	vec3 reflection = textureLod( u_reflected_texture, R, roughness * 5.0 ).xyz;
+	//vec3 reflection = textureLod( reflected_texture, R, roughness * 5.0 ).xyz;
 
 	//set the metalness as alpha
 	FragColor = vec4( reflection, metalness );

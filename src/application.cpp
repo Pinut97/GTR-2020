@@ -122,6 +122,7 @@ void Application::render(void)
 
 	glDisable(GL_DEPTH_TEST);
 	renderer->renderReflectionProbe(renderer->reflection_probes[0], camera);
+	renderer->renderReflectionProbe(renderer->reflection_probes[1], camera);
 	//renderer->reflections_fbo->color_textures[0]->toViewport();
 	//render anything in the gui after this
 

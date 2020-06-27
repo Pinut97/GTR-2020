@@ -25,7 +25,7 @@ void Scene::render(Camera* camera, GTR::Renderer* renderer) {
 	else
 		Scene::getInstance()->ambientLight = Vector3(0.1, 0.1, 0.1);
 
-	//renderer->generateShadowMaps();
+	renderer->renderSkybox(camera);
 
 	for (size_t i = 0; i < this->prefabEntities.size(); i++) {
 		renderer->shadow = true;
@@ -173,6 +173,7 @@ void Scene::generateSecondScene(Camera* camera)
 	this->prefabEntities.push_back(building);
 
 	PrefabEntity* car1 = new PrefabEntity(car_prefab);
+	car1->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
 	car1->setPosition(-300, 0, 0);
 	this->prefabEntities.push_back(car1);
 	car1->model.rotate(DEG2RAD * 90, Vector3(0, -1, 0));
