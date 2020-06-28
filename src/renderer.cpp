@@ -31,6 +31,7 @@ Renderer::Renderer()
 	use_reflection = true;
 	use_deferred = true;
 	use_volumetric = false;
+	use_decals = true;
 
 	show_GBuffers = false;
 	show_ao = false;
@@ -45,6 +46,7 @@ Renderer::Renderer()
 	probes_texture = nullptr;
 	blur_texture = new Texture();
 	environment = CubemapFromHDRE("data/panorama.hdre");
+	aux_texture = NULL;
 
 	points.resize(64);
 	points = GTR::generateSpherePoints(64, 1.0f, true);
@@ -79,6 +81,9 @@ Renderer::Renderer()
 	reflection_probe_2->cubemap = new Texture();
 	reflection_probe_2->cubemap->createCubemap(512, 512, NULL, GL_RGB, GL_UNSIGNED_INT, false);
 	reflection_probes.push_back(reflection_probe_2);
+
+	cube = new Mesh();
+	cube->createCube();
 }
 
 //renders all the prefab
@@ -317,6 +322,43 @@ void Renderer::renderDeferred(Camera* camera)
 	Mesh* quad = Mesh::getQuad();
 
 	this->fbo->unbind();
+
+	//DECALS pass
+	if(use_decals)
+	{
+		if (!aux_texture)
+			aux_texture = new Texture(fbo->depth_texture->width, fbo->depth_texture->height, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, false);
+		fbo->depth_texture->copyTo(aux_texture);
+
+		fbo->bind();
+
+		glDisable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+
+		Matrix44 m;
+		m.setTranslation(425, 0, -200);
+		m.scale(75, 1, 75);
+		Matrix44 im;
+		im = m;
+		im.inverse();
+
+		Shader* shader = Shader::Get("decal");
+		shader->enable();
+		shader->setUniform("u_inverse_viewprojection", inverse_matrix);
+		shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+		shader->setUniform("u_model", m);
+		shader->setUniform("u_imodel", im);
+		shader->setTexture("u_texture", Texture::Get("data/bandera_umusacsual.png"), 0);
+		shader->setUniform("u_iRes", Vector2(1.0 / fbo->width, 1.0 / fbo->height));
+		shader->setTexture("u_depth_texture", aux_texture, 1);
+		shader->setUniform("u_camera_position", camera->eye);
+		cube->render(GL_TRIANGLES);
+
+		fbo->unbind();
+
+		glDisable(GL_CULL_FACE);
+	}
 
 	//AMBIENT OCCLUSION pass
 
@@ -983,6 +1025,7 @@ void Renderer::renderOptionsInMenu() {
 
 	ImGui::Checkbox("Use Deferred", &use_deferred);
 	ImGui::Checkbox("Use Volumetric", &use_volumetric);
+	ImGui::Checkbox("Use Decals", &use_decals);
 
 	ImGui::Checkbox("Show AO", &show_ao);
 	ImGui::Checkbox("Show GBuffers", &show_GBuffers);

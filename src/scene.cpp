@@ -182,12 +182,18 @@ void Scene::generateSecondScene(Camera* camera)
 	this->prefabEntities.push_back(car1);
 	car1->model.rotate(DEG2RAD * 90, Vector3(0, -1, 0));
 
+	PrefabEntity* car2 = new PrefabEntity(car_prefab);
+	car2->pPrefab->root.material->emissive_texture->Get("data/prefabs/gmc/textures/Material_33_emissive.png");
+	car2->setPosition(425, -2.5, 0);
+	this->prefabEntities.push_back(car2);
+	car2->model.rotate(DEG2RAD * 90, Vector3(0, 1, 0));
+
 	//LIGHTS
-	Light* light = new Light(lightType::SPOT);
-	light->setColor(1.0, 0.0, 0.0);
-	light->intensity = 10.0f;
-	light->maxDist = 500;
-	light->model.translate(0, 150, 0);
+	Light* spot_light_1 = new Light(lightType::SPOT);
+	spot_light_1->setColor(1.0, 0.0, 0.0);
+	spot_light_1->intensity = 10.0f;
+	spot_light_1->maxDist = 500;
+	spot_light_1->model.translate(0, 150, 0);
 	
 	Light* directional = new Light(lightType::DIRECTIONAL);
 	directional->model.translate(200, 500, 0);
@@ -198,8 +204,8 @@ void Scene::generateSecondScene(Camera* camera)
 	sun = directional;
 	
 	this->ambientLight = Vector3(0.1f, 0.1f, 0.1f);
-
-	this->lightEntities.push_back(light);
+	
+	this->lightEntities.push_back(spot_light_1);
 	this->lightEntities.push_back(directional);
 }
 

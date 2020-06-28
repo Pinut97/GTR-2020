@@ -13,6 +13,7 @@ probe basic.vs probe.fs
 reflection quad.vs reflection.fs
 skybox basic.vs skybox.fs
 volumetric quad.vs volumetric.fs
+decal basic.vs decal.fs
 
 \basic.vs
 
@@ -1212,7 +1213,7 @@ in vec2 v_uv;
 
 layout(location = 0) out vec4 FragColor;
 
-const float MAX_DIST = 100.0f;
+const float MAX_DIST = 250.0f;
 
 void main()
 {
@@ -1233,8 +1234,8 @@ void main()
 	vec4 proj_worldpos = u_inverse_viewprojection * screen_pos;
 	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
 
-	float dist_probe_1 = length(u_probe_1_pos - worldpos);
-	float dist_probe_2 = length(u_probe_2_pos - worldpos);
+	float dist_probe_1 = length(u_probe_1_pos - u_camera_pos);
+	float dist_probe_2 = length(u_probe_2_pos - u_camera_pos);
 
 	//read metal and roughness values from the metal and roughness texture
 	float metalness = texture2D( u_metal_roughness_texture, uv ).z;
@@ -1248,10 +1249,12 @@ void main()
 
 	if(dist_probe_1 < dist_probe_2 && dist_probe_1 < MAX_DIST)
 	{
+		R.y *= -1.0;
 		reflection = textureLod( u_reflection_texture_1, R, roughness * 5.0 ).xyz;
 	}
 	else if(dist_probe_2 < dist_probe_1 && dist_probe_2 < MAX_DIST)
 	{
+		R.y *= -1.0;
 		reflection = textureLod( u_reflection_texture_2, R, roughness * 5.0 ).xyz;
 	}
 	else
@@ -1399,4 +1402,46 @@ float computeShadowFactor( in int type, in vec3 worldpos )
 	if (shadow_depth < real_depth)
 		return 0.0;
 	return 1.0;
+}
+
+\decal.fs
+
+#version 330 core
+
+in vec4 v_color;
+
+uniform vec4 u_color;
+uniform sampler2D u_texture;
+uniform sampler2D u_depth_texture;
+uniform vec3 u_camera_position;
+
+uniform mat4 u_inverse_viewprojection;
+uniform vec2 u_iRes;
+uniform mat4 u_imodel;
+
+layout(location = 0) out vec4 ColorBuffer;
+
+void main()
+{
+	vec2 uv = gl_FragCoord.xy * u_iRes;
+	float depth = texture( u_depth_texture, uv ).x;
+	if(depth >= 1.0)
+	{
+		discard;
+		return;
+	}
+
+	vec4 screen_position = vec4(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+	vec4 proj_worldpos = u_inverse_viewprojection * screen_position;
+	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
+	vec3 V = normalize(worldpos - u_camera_position);
+
+	vec3 decal_pos = (u_imodel * vec4(worldpos,1.0)).xyz;
+	vec2 uv_decal = decal_pos.xz * 0.5 + vec2(0.5);
+	if( uv_decal.x < 0.0 || uv_decal.x > 1.0 || uv_decal.y < 0.0 || uv_decal.y > 1.0)
+		discard;
+
+	vec4 color = texture( u_texture, uv_decal );
+
+	ColorBuffer = color;
 }
