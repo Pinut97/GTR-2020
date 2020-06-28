@@ -262,6 +262,7 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
 
 	ImGui::Checkbox("Use Deferred", &renderer->use_deferred);
+	ImGui::Checkbox("Use Reflection", &renderer->use_reflection);
 
 	ImGui::Checkbox("Show AO", &renderer->show_ao);
 	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);
