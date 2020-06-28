@@ -30,12 +30,14 @@ Renderer::Renderer()
 	use_irradiance = false;
 	use_reflection = true;
 	use_deferred = true;
+	use_volumetric = true;
 
 	show_GBuffers = false;
 	show_ao = false;
 	show_deferred = true;
 	show_irr_probes = false;
 	show_irradiance = false;
+	show_reflection_probes = false;
 	show_probe_coefficients_texture = false;
 
 	fbo = nullptr;
@@ -284,6 +286,7 @@ void Renderer::renderDeferred(Camera* camera)
 	Shader* second_pass = NULL;
 	Shader* ao_shader = NULL;
 	Shader* reflection_pass = NULL;
+	Shader* volumetric_shader = NULL;
 
 	//create fbo in case it hasn't been created before
 	if (!this->fbo)
@@ -487,7 +490,6 @@ void Renderer::renderDeferred(Camera* camera)
 		}
 
 		second_pass->disable();
-
 	}
 
 	//REFLECTION PASS
@@ -519,6 +521,42 @@ void Renderer::renderDeferred(Camera* camera)
 		reflection_pass->disable();
 	}
 
+	//VOLUMETRIC PASS
+
+	if (use_volumetric && Scene::getInstance()->sun && Scene::getInstance()->sun->shadowMap)
+	{
+		std::cout << "enters" << std::endl;
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_DEPTH_TEST);
+
+		Light* sun = Scene::getInstance()->sun;
+		Matrix44 inv_vp = camera->viewprojection_matrix;
+		inv_vp.inverse();
+
+		volumetric_shader = Shader::Get("volumetric");
+		
+		volumetric_shader->enable();
+
+		volumetric_shader->setUniform("u_depth_texture", fbo->depth_texture, 0);
+		volumetric_shader->setUniform("u_camera_position", camera->eye);
+		volumetric_shader->setUniform("u_inverse_viewprojection", inv_vp);
+		volumetric_shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+		volumetric_shader->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+		volumetric_shader->setUniform("u_light_color", sun->color);
+		volumetric_shader->setUniform("u_light_position", sun->model.getTranslation());
+		volumetric_shader->setUniform("u_light_shadowmap", sun->shadowMap, 1);
+		volumetric_shader->setUniform("u_light_viewprojection", sun->camera->viewprojection_matrix);
+		//volumetric_shader->setUniform("", );
+
+		quad->render(GL_TRIANGLES);
+
+		volumetric_shader->disable();
+		glDisable(GL_BLEND);
+	}
+
+	/********	DEBUG OPTIONS	********/
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 

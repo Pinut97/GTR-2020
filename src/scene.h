@@ -17,6 +17,7 @@ public:
 	std::vector<Light*> lightEntities;
 	Vector3 ambientLight;
 	Entity* gizmoEntity;
+	Light* sun;
 
 	unsigned int numPrefabEntities;
 	unsigned int numLightEntities;

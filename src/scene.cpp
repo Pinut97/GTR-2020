@@ -15,6 +15,7 @@ Scene::Scene()
 	ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 	gizmoEntity = nullptr;
 	ambient_occlusion = true;
+	sun = NULL;
 }
 
 void Scene::render(Camera* camera, GTR::Renderer* renderer) {
@@ -163,6 +164,9 @@ void Scene::generateSecondScene(Camera* camera)
 
 	generateTerrain(1000);
 
+	camera->lookAt(Vector3(200, 110, -300), Vector3(230, 90, 640), Vector3(0, 1, 0));
+
+
 	//scene---------------
 	GTR::Prefab* prefab = GTR::Prefab::Get("data/prefabs/brutalism/scene.gltf");
 	GTR::Prefab* car_prefab = GTR::Prefab::Get("data/prefabs/gmc/scene.gltf");
@@ -192,6 +196,8 @@ void Scene::generateSecondScene(Camera* camera)
 		Vector3(0, 1, 0));
 	directional->target_vector = directional->camera->eye;
 	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
+	//directional->is_cascade = false;
+	sun = directional;
 	
 	this->ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 

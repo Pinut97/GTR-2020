@@ -46,6 +46,7 @@ namespace GTR {
 		bool use_irradiance;
 		bool use_reflection;
 		bool use_deferred;
+		bool use_volumetric;
 
 		bool show_GBuffers;
 		bool show_ao;
