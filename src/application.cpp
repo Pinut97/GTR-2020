@@ -268,6 +268,7 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Show Irradiance Probes", &renderer->show_irr_probes);
 	ImGui::Checkbox("Show Reflection Probes", &renderer->show_reflection_probes);
 	ImGui::Checkbox("Show Probe Coefficients Texture", &renderer->show_probe_coefficients_texture);
+	ImGui::Checkbox("Show Decal", &renderer->use_decals);
 
 	//add info to the debug panel about the camera
 	if (ImGui::TreeNode(camera, "Camera")) {

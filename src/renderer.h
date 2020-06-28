@@ -46,6 +46,7 @@ namespace GTR {
 		bool use_irradiance;
 		bool use_reflection;
 		bool use_deferred;
+		bool use_decals;
 
 		bool show_GBuffers;
 		bool show_ao;
@@ -62,6 +63,9 @@ namespace GTR {
 		Texture* blur_texture;
 		Texture* probes_texture;
 		Texture* environment;
+		Texture* aux_texture;
+
+		Mesh* cube;
 
 		std::vector<Vector3> points;
 		std::vector<sIrradianceProbe> irradiance_probes;
