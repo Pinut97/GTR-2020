@@ -633,10 +633,6 @@ void main()
 
 		light += ambient_light;
 	}
-		
-	//light *= ao_factor;
-
-	//finalColor  = light * color_texture;
 
 	if(depth == 1)
 		discard;
@@ -1279,21 +1275,156 @@ uniform mat4 u_inverse_viewprojection;
 uniform vec3 u_camera_position;
 
 uniform mat4 u_light_viewprojection;
+uniform int u_light_type;
+uniform bool u_is_cascade;
+uniform float u_light_bias;
+uniform vec3 u_light_color;
+
+uniform mat4 u_shadow_viewprojection_array[4];	//for cascade in DIRECTIONAL
+uniform mat4 u_shadow_viewprojection;			//for PHONG only so far
 
 in vec2 v_uv;
 
 layout(location = 0) out vec4 FragColor;
 
+bool checkShadowmapLevel( in int shadow_index, inout vec3 shadow_uv, inout vec4 shadow_proj_pos, in vec3 worldpos );
+float computeShadowFactor( in int type, in vec3 worldpos );
+float computeShadowFactor( in vec3 worldpos );
+
 void main()
 {
 	vec2 uv = gl_FragCoord.xy * u_iRes;
-	float depth = texture( u_depth_texture, uv ).x;
+	float depth = texture2D( u_depth_texture, uv ).x;
+	if(depth == 1)
+		discard;
 
-	vec4 screen_position = vec4( uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
-	vec4 proj_worldpos = u_inverse_viewprojection * screen_position;
+	//reconstruct 3D scene from 2D screen position using the inverse viewprojection of the camera
+	vec4 screen_pos = vec4(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0, depth * 2 - 1.0, 1.0);
+	vec4 proj_worldpos = u_inverse_viewprojection * screen_pos;
 	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
 
-	float dist = length( u_camera_position - worldpos );
+	const int SAMPLES = 64;
 
-	FragColor = vec4( dist );
+	//float dist = length( u_camera_position - worldpos ) * 0.001;
+	vec3 raydir =  worldpos - u_camera_position;
+	float dist = length( raydir );
+	raydir /= dist;
+	float step = dist / SAMPLES;
+
+	vec3 current_pos = u_camera_position;
+	vec3 ray_offset = raydir * step;
+	float transparency = 1.0;
+	float air_density = 0.001;
+
+	vec3 color = vec3(0.0);
+
+	for( int i = 0; i < SAMPLES; i++)
+	{
+		float shadow_factor = computeShadowFactor( current_pos );
+		color += shadow_factor * u_light_color;
+
+		//current_pos += ray_offset;
+		current_pos += raydir;
+		transparency -= air_density * step;
+	}
+
+	transparency = 0.5;
+	FragColor = vec4( color, transparency );
+}
+
+float computeShadowFactor( in vec3 worldpos )
+{
+	vec4 shadow_proj_pos = u_shadow_viewprojection * vec4( worldpos, 1.0 );
+	vec3 shadow_uv = shadow_proj_pos.xyz / shadow_proj_pos.w;
+
+	shadow_uv = shadow_uv * 0.5 + vec3(0.5);
+	if( shadow_uv.x < 0 || shadow_uv.x > 1 || shadow_uv.y < 0 || shadow_uv.y > 1 )
+		return 1.0;
+
+	float real_depth = (shadow_proj_pos.z - u_light_bias) / shadow_proj_pos.w;	//real distance
+	real_depth = real_depth * 0.5 + 0.5;
+	
+	//compare with far and near
+	if( real_depth > 1 || real_depth < 0 )
+		return 1.0;
+
+	float shadow_depth = texture( u_depth_texture, shadow_uv.xy ).x;
+	
+	float xOffset = 1.0 * u_iRes.x;
+	float yOffset = 1.0 * u_iRes.y;
+	float factor = 0.0;
+
+	if (shadow_depth < real_depth)
+		return 0.0;
+	return 1.0;
+}
+
+float computeShadowFactor( in int type, in vec3 worldpos )
+{
+	vec4 shadow_proj_pos;
+	vec3 shadow_uv;
+	bool auxiliar;
+	int level = 0;
+
+	if( type == 0 && u_is_cascade ) //DIRECTIONAL
+	{
+		for( int i = 0; i < 4; i++)
+		{
+			auxiliar = checkShadowmapLevel( i, shadow_uv, shadow_proj_pos, worldpos );
+			if( auxiliar ){
+				level = i;
+				break;
+			}
+		}
+
+		if( !auxiliar )
+			return 1.0;
+
+		switch( level ){
+			case 0:	shadow_uv *= 0.5; break;
+			case 1: shadow_uv.x = shadow_uv.x * 0.5 + 0.5; 
+					shadow_uv.y = shadow_uv.y * 0.5; break;
+			case 2: shadow_uv.x = shadow_uv.x * 0.5;
+					shadow_uv.y = shadow_uv.y * 0.5 + 0.5; break;
+			case 3: shadow_uv = shadow_uv * 0.5 + 0.5; break;
+		}
+	}
+	else	//SPOT
+	{
+		shadow_proj_pos = u_shadow_viewprojection * vec4( worldpos, 1.0 );
+		shadow_uv = shadow_proj_pos.xyz / shadow_proj_pos.w;
+
+		shadow_uv = shadow_uv * 0.5 + vec3(0.5);
+		if( shadow_uv.x < 0 || shadow_uv.x > 1 || shadow_uv.y < 0 || shadow_uv.y > 1 )
+			return 1.0;
+	}
+
+	float real_depth = (shadow_proj_pos.z - u_light_bias) / shadow_proj_pos.w;	//real distance
+	real_depth = real_depth * 0.5 + 0.5;
+	
+	//compare with far and near
+	if( real_depth > 1 || real_depth < 0 )
+		return 1.0;
+
+	float shadow_depth = texture( u_depth_texture, shadow_uv.xy ).x;
+	
+	float xOffset = 1.0 * u_iRes.x;
+	float yOffset = 1.0 * u_iRes.y;
+	float factor = 0.0;
+
+	if (shadow_depth < real_depth)
+		return 0.0;
+	return 1.0;
+}
+
+bool checkShadowmapLevel( in int shadow_index, inout vec3 shadow_uv, inout vec4 shadow_proj_pos, in vec3 worldpos )
+{
+	shadow_proj_pos = u_shadow_viewprojection_array[shadow_index] * vec4(worldpos, 1.0);
+	shadow_uv = shadow_proj_pos.xyz / shadow_proj_pos.w;
+
+	shadow_uv = shadow_uv * 0.5 + vec3(0.5);
+
+	if( shadow_proj_pos.x < 1 && shadow_proj_pos.x > -1 && shadow_proj_pos.y < 1 && shadow_proj_pos.y > -1 )
+		return true;
+	return false;
 }

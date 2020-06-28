@@ -525,11 +525,9 @@ void Renderer::renderDeferred(Camera* camera)
 
 	if (use_volumetric && Scene::getInstance()->sun && Scene::getInstance()->sun->shadowMap)
 	{
-		std::cout << "enters" << std::endl;
-
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glEnable(GL_DEPTH_TEST);
+		glDisable(GL_DEPTH_TEST);
 
 		Light* sun = Scene::getInstance()->sun;
 		Matrix44 inv_vp = camera->viewprojection_matrix;
@@ -547,8 +545,12 @@ void Renderer::renderDeferred(Camera* camera)
 		volumetric_shader->setUniform("u_light_color", sun->color);
 		volumetric_shader->setUniform("u_light_position", sun->model.getTranslation());
 		volumetric_shader->setUniform("u_light_shadowmap", sun->shadowMap, 1);
-		volumetric_shader->setUniform("u_light_viewprojection", sun->camera->viewprojection_matrix);
-		//volumetric_shader->setUniform("", );
+		volumetric_shader->setUniform("u_is_cascade", sun->is_cascade);
+		volumetric_shader->setUniform("u_light_bias", sun->bias);
+		if (sun->light_type == lightType::SPOT || !sun->is_cascade)
+			volumetric_shader->setUniform("u_shadow_viewprojection", sun->camera->viewprojection_matrix);
+		else if (sun->light_type == lightType::DIRECTIONAL && sun->is_cascade)
+			volumetric_shader->setMatrix44Array("u_shadow_viewprojection_array", sun->shadow_viewprojection, 4);
 
 		quad->render(GL_TRIANGLES);
 
