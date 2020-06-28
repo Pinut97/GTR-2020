@@ -672,16 +672,18 @@ void Renderer::renderShadowMap()
 		{
 			glViewport(0, 0, 300, 300);
 			glDisable(GL_BLEND);
-			glEnable(GL_DEPTH_TEST);
-			Shader* shader = Shader::Get("depth");
-			shader->enable();
-			shader->setUniform("u_camera_nearfar",
-				Vector2(light->camera->near_plane, light->camera->far_plane));
-			if (light->light_type == lightType::SPOT || light->light_type == lightType::POINT_LIGHT)
+			//glEnable(GL_DEPTH_TEST);
+			if (light->light_type == lightType::SPOT)
+			{
+				Shader* shader = Shader::Get("depth");
+				shader->enable();
+				shader->setUniform("u_camera_nearfar",
+					Vector2(light->camera->near_plane, light->camera->far_plane));
 				light->shadowMap->toViewport(shader);
+				shader->disable();
+			}
 			else
 				light->shadowMap->toViewport();
-			shader->disable();
 			glEnable(GL_BLEND);
 		}
 		else if (light->show_camera)

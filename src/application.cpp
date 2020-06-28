@@ -116,7 +116,6 @@ void Application::render(void)
 	if (render_debug && render_grid)
 		drawGrid();
 
-
 	//render anything in the gui after this
 
 	//the swap buffers is done in the main loop after this function

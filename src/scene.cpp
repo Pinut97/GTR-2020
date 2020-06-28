@@ -164,8 +164,8 @@ void Scene::generateSecondScene(Camera* camera)
 
 	generateTerrain(1000);
 
-	camera->lookAt(Vector3(200, 110, -300), Vector3(230, 90, 640), Vector3(0, 1, 0));
-
+	Vector3 n = normalize(Vector3(230, 90, 640));
+	camera->lookAt(Vector3(200, 110, -300), n, Vector3(0, 1, 0));
 
 	//scene---------------
 	GTR::Prefab* prefab = GTR::Prefab::Get("data/prefabs/brutalism/scene.gltf");
@@ -190,19 +190,32 @@ void Scene::generateSecondScene(Camera* camera)
 	light->maxDist = 500;
 	light->model.translate(0, 150, 0);
 	
+	Light* directionalLight = new Light(lightType::DIRECTIONAL);
+	directionalLight->setPosition(450.0f, 600.0f, 0.0f);
+	directionalLight->camera->lookAt(directionalLight->model.getTranslation(), Vector3(0, 0, 0),
+		Vector3(0, 1, 0));
+	directionalLight->camera->far_plane = 3000.0f;
+	directionalLight->setColor(0.9, 0.9, 0.9);
+	directionalLight->intensity = 1;
+	directionalLight->target_vector = directionalLight->camera->eye;
+	directionalLight->initial_position = directionalLight->model.getTranslation() + directionalLight->target_vector;
+	sun = directionalLight;
+	this->lightEntities.push_back(directionalLight);
+
+	/*
 	Light* directional = new Light(lightType::DIRECTIONAL);
 	directional->model.translate(200, 500, 0);
 	directional->camera->lookAt(directional->model.getTranslation(), Vector3(0, 0, 0) - directional->model.getTranslation(),
 		Vector3(0, 1, 0));
 	directional->target_vector = directional->camera->eye;
 	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
-	//directional->is_cascade = false;
+	directional->is_cascade = false;
 	sun = directional;
-	
+	this->lightEntities.push_back(directional);
+	*/
 	this->ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 
 	this->lightEntities.push_back(light);
-	this->lightEntities.push_back(directional);
 }
 
 void Scene::generateTestScene() 
