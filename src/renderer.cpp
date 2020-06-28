@@ -627,6 +627,8 @@ void Renderer::renderDeferred(Camera* camera)
 void Renderer::computeIrradiance()
 {
 	irradiance_probes.clear();
+	if (probes_texture)
+		delete probes_texture;
 
 	for(int z = 0; z < irr_dim.z; z++)
 		for(int y = 0; y < irr_dim.y; y++)
@@ -1009,6 +1011,9 @@ bool Renderer::loadIrradiance(const char* filename)
 				p.sh = sh_data[index];
 				irradiance_probes.push_back(p);
 			}
+
+	if(!probes_texture)
+		probes_texture = new Texture(9, irradiance_probes.size(), GL_RGB, GL_FLOAT);
 
 	probes_texture->upload(GL_RGB, GL_FLOAT, false, (uint8*)sh_data);
 
