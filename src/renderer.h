@@ -93,6 +93,7 @@ namespace GTR {
 		void renderGBuffers(Camera* camera);
 		void renderIrradianceProbes(Vector3 pos, float size, float* coeffs);
 		void renderReflectionProbe(sReflectionProbe* p, Camera* camera);
+		void renderOptionsInMenu();
 	
 		//to render a whole prefab (with all its nodes)
 		void renderPrefab(const Matrix44& model, GTR::Prefab* prefab, Camera* camera);

@@ -976,3 +976,19 @@ bool Renderer::loadIrradiance(const char* filename)
 
 	delete[] sh_data;
 }
+
+void Renderer::renderOptionsInMenu() {
+	ImGui::Checkbox("Real Time Shadows", &use_realtime_shadows);
+	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
+
+	ImGui::Checkbox("Use Deferred", &use_deferred);
+	ImGui::Checkbox("Use Volumetric", &use_volumetric);
+
+	ImGui::Checkbox("Show AO", &show_ao);
+	ImGui::Checkbox("Show GBuffers", &show_GBuffers);
+	ImGui::Checkbox("Show Irradiance Probes", &show_irr_probes);
+	ImGui::Checkbox("Show Reflection Probes", &show_reflection_probes);
+	ImGui::Checkbox("Show Probe Coefficients Texture", &show_probe_coefficients_texture);
+
+	ImGui::DragFloat("Irradiance factor", &irr_factor, 0.1f);
+}

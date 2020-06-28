@@ -257,19 +257,10 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Wireframe", &render_wireframe);
 	ImGui::ColorEdit4("BG color", bg_color.v);
 	ImGui::Checkbox("Grid", &render_grid);
-	ImGui::Checkbox("Real Time Shadows", &renderer->use_realtime_shadows);
-	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
-
-	ImGui::Checkbox("Use Deferred", &renderer->use_deferred);
-	ImGui::Checkbox("Use Volumetric", &renderer->use_volumetric);
-
-	ImGui::Checkbox("Show AO", &renderer->show_ao);
-	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);
-	ImGui::Checkbox("Show Irradiance Probes", &renderer->show_irr_probes);
-	ImGui::Checkbox("Show Reflection Probes", &renderer->show_reflection_probes);
-	ImGui::Checkbox("Show Probe Coefficients Texture", &renderer->show_probe_coefficients_texture);
-
-	ImGui::DragFloat("Irradiance factor", &renderer->irr_factor, 0.1f);
+	if (ImGui::TreeNode(renderer, "Render")) {
+		renderer->renderOptionsInMenu();
+		ImGui::TreePop();
+	}
 
 	//add info to the debug panel about the camera
 	if (ImGui::TreeNode(camera, "Camera")) {
@@ -285,26 +276,31 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Ambient Light", &Scene::getInstance()->ambient_light);
 
 	//LIGHTS
-	for (int i = 0; i < Scene::getInstance()->lightEntities.size(); i++)
-	{
-		if (ImGui::TreeNode(Scene::getInstance()->lightEntities.at(i),
-			Scene::getInstance()->lightEntities.at(i)->name.c_str()))
+	if (ImGui::TreeNode(Scene::getInstance(), "Entities")) {
+		for (int i = 0; i < Scene::getInstance()->lightEntities.size(); i++)
 		{
-			Scene::getInstance()->lightEntities.at(i)->renderInMenu();
-			ImGui::TreePop();
+			if (ImGui::TreeNode(Scene::getInstance()->lightEntities.at(i),
+				Scene::getInstance()->lightEntities.at(i)->name.c_str()))
+			{
+				Scene::getInstance()->lightEntities.at(i)->renderInMenu();
+				ImGui::TreePop();
+			}
 		}
+
+
+		//ENTITIES
+		//example to show prefab info: first param must be unique!
+		for (int i = 0; i < Scene::getInstance()->prefabEntities.size(); i++)
+		{
+			if (ImGui::TreeNode(Scene::getInstance()->prefabEntities.at(i), "Prefab")) {
+				//Scene::getInstance()->prefabEntities.at(i)->pPrefab->root.renderInMenu();
+				Scene::getInstance()->prefabEntities.at(i)->renderInMenu();
+				ImGui::TreePop();
+			}
+		}
+		ImGui::TreePop();
 	}
 
-	//ENTITIES
-	//example to show prefab info: first param must be unique!
-	for (int i = 0; i < Scene::getInstance()->prefabEntities.size(); i++)
-	{
-		if (ImGui::TreeNode(Scene::getInstance()->prefabEntities.at(i), "Prefab")) {
-			//Scene::getInstance()->prefabEntities.at(i)->pPrefab->root.renderInMenu();
-			Scene::getInstance()->prefabEntities.at(i)->renderInMenu();
-			ImGui::TreePop();
-		}
-	}
 #endif
 }
 

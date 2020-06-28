@@ -172,7 +172,7 @@ void Scene::generateSecondScene(Camera* camera)
 
 	//ENTITIES
 	PrefabEntity* building = new PrefabEntity(prefab);
-	building->setPosition(0, 10, 0);
+	building->setPosition(0, 20, 0);
 	building->model.scale(100, 100, 100);
 	this->prefabEntities.push_back(building);
 
