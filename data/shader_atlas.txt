@@ -1209,7 +1209,7 @@ in vec2 v_uv;
 
 layout(location = 0) out vec4 FragColor;
 
-const float MAX_DIST = 100.0f;
+const float MAX_DIST = 250.0f;
 
 void main()
 {
@@ -1230,12 +1230,15 @@ void main()
 	vec4 proj_worldpos = u_inverse_viewprojection * screen_pos;
 	vec3 worldpos = proj_worldpos.xyz / proj_worldpos.w;
 
-	float dist_probe_1 = length(u_probe_1_pos - worldpos);
-	float dist_probe_2 = length(u_probe_2_pos - worldpos);
+	float dist_probe_1 = length(u_probe_1_pos - u_camera_pos);
+	float dist_probe_2 = length(u_probe_2_pos - u_camera_pos);
 
 	//read metal and roughness values from the metal and roughness texture
 	float metalness = texture2D( u_metal_roughness_texture, uv ).z;
 	float roughness = texture2D( u_metal_roughness_texture, uv ).y;
+
+	metalness = 0.5;
+	roughness = 0.0;
 
 	vec3 V = normalize( u_camera_pos - worldpos );
 
@@ -1245,10 +1248,12 @@ void main()
 
 	if(dist_probe_1 < dist_probe_2 && dist_probe_1 < MAX_DIST)
 	{
+		R.y *= -1.0;
 		reflection = textureLod( u_reflection_texture_1, R, roughness * 5.0 ).xyz;
 	}
 	else if(dist_probe_2 < dist_probe_1 && dist_probe_2 < MAX_DIST)
 	{
+		R.y *= -1.0;
 		reflection = textureLod( u_reflection_texture_2, R, roughness * 5.0 ).xyz;
 	}
 	else
