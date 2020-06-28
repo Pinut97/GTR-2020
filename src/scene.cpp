@@ -16,6 +16,7 @@ Scene::Scene()
 	gizmoEntity = nullptr;
 	ambient_occlusion = true;
 	ambient_light = true;
+	sun = nullptr;
 }
 
 void Scene::render(Camera* camera, GTR::Renderer* renderer) {
@@ -121,6 +122,7 @@ void Scene::generateScene(Camera* camera) {
 	directionalLight->target_vector = directionalLight->camera->eye;
 	directionalLight->initial_position = directionalLight->model.getTranslation() + directionalLight->target_vector;
 	this->lightEntities.push_back(directionalLight);
+	sun = directionalLight;
 	
 	this->lightEntities.push_back(light);
 	this->lightEntities.push_back(lightRed);
@@ -193,6 +195,7 @@ void Scene::generateSecondScene(Camera* camera)
 		Vector3(0, 1, 0));
 	directional->target_vector = directional->camera->eye;
 	directional->initial_position = directional->model.getTranslation() + directional->target_vector;
+	sun = directional;
 	
 	this->ambientLight = Vector3(0.1f, 0.1f, 0.1f);
 

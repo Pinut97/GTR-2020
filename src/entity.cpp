@@ -70,7 +70,7 @@ Light::Light(lightType type_)
 	visible = true;
 	bias = 0.001f;
 
-	is_cascade = true;
+	is_cascade = false;
 	renderedHighShadow = false;
 
 	angleCutoff = 30;
@@ -262,7 +262,7 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade,
 	if (!is_cascade)
 	{
 		glViewport(0, 0, texture_width, texture_height);
-		this->camera->setOrthographic(-w / 2.0f, w / 2.0f, -h / 2.0f, h / 2.0f,
+		this->camera->setOrthographic(-w , w , -h , h ,
 			this->camera->near_plane, this->camera->far_plane);
 
 		grid = w / (texture_width);
@@ -320,95 +320,5 @@ void Light::renderDirectionalShadowMap(GTR::Renderer* renderer, bool is_cascade,
 				renderer->renderPrefab(entity->model, entity->pPrefab, this->camera);
 			}
 		}
-		/*
-		//first quadrant
-		//--------------
-		this->camera->setOrthographic(-w / 4.0f, w / 4.0f, -h / 4.0f, h / 4.0f,
-			this->camera->near_plane, this->camera->far_plane);
-
-		this->camera->updateProjectionMatrix();
-
-		glViewport(0, 0, texture_width / 2.0f, texture_height / 2.0f);
-
-		//in order to find the size of each pixel in world coordinates we need to take the width of the frustum
-		//divided by the texture size. Since the texture is an atlas texture we have to divide it by the size of 
-		//each real texture and not the whole texture (in this case just the half of the whole texture since each
-		//texture occupies a quarter of the whole)
-		//once the calculations are done, we round the position of the camera to make it fit into the grid
-		grid = (w * 0.5f) / (texture_width * 0.5f);
-		camera->view_matrix.M[3][1] = round(camera->view_matrix.M[3][1] / grid) * grid;
-		camera->view_matrix.M[3][0] = round(camera->view_matrix.M[3][0] / grid) * grid;
-		this->camera->viewprojection_matrix = camera->view_matrix * camera->projection_matrix;
-
-		this->shadow_viewprojection[0] = camera->viewprojection_matrix;
-
-		for (auto& entity : Scene::getInstance()->prefabEntities)
-		{
-			renderer->renderPrefab(entity->model, entity->pPrefab, this->camera);
-		}
-
-		//second quadrant
-		//---------------
-		this->camera->setOrthographic(-w / 2.0f, w / 2.0f, -h / 2.0f, h / 2.0f,
-			this->camera->near_plane, this->camera->far_plane);
-
-		glViewport(texture_width / 2.0f, 0, texture_width / 2.0f, texture_height / 2.0f);
-
-		grid = w / (this->fbo->depth_texture->width / 2);
-		camera->view_matrix.M[3][1] = round(camera->view_matrix.M[3][1] / grid) * grid;
-		camera->view_matrix.M[3][0] = round(camera->view_matrix.M[3][0] / grid) * grid;
-		camera->viewprojection_matrix = camera->view_matrix * camera->projection_matrix;
-
-		this->shadow_viewprojection[1] = camera->viewprojection_matrix;
-
-		for (auto& entity : Scene::getInstance()->prefabEntities)
-		{
-			renderer->renderPrefab(entity->model, entity->pPrefab, this->camera);
-		}
-
-		//third quadrant
-		//--------------
-		this->camera->setOrthographic(-w, w, -h, h, this->camera->near_plane, this->camera->far_plane);
-
-		glViewport(0, texture_height / 2, texture_width / 2, texture_height / 2);
-
-		grid = (w * 2.0) / (this->fbo->depth_texture->width / 2);
-		camera->view_matrix.M[3][1] = round(camera->view_matrix.M[3][1] / grid) * grid;
-		camera->view_matrix.M[3][0] = round(camera->view_matrix.M[3][0] / grid) * grid;
-		camera->viewprojection_matrix = camera->view_matrix * camera->projection_matrix;
-
-		shadow_viewprojection[2] = camera->viewprojection_matrix;
-
-		for (auto& entity : Scene::getInstance()->prefabEntities)
-		{
-			renderer->renderPrefab(entity->model, entity->pPrefab, this->camera);
-		}
-
-		//fourth quadrant
-		//---------------
-		this->camera->setOrthographic(-2 * w, 2 * w, -2 * h, 2 * h / 2,
-			this->camera->near_plane, this->camera->far_plane);
-		this->camera->eye = this->initial_position;
-		this->camera->lookAt(this->camera->eye, Vector3(0, 0, 0), Vector3(0, 1, 0));
-
-		glViewport(texture_width / 2, texture_height / 2, texture_width / 2, texture_height / 2);
-
-		grid = (w * 4.0) / (this->fbo->depth_texture->width / 2);
-		camera->view_matrix.M[3][1] = round(camera->view_matrix.M[3][1] / grid) * grid;
-		camera->view_matrix.M[3][0] = round(camera->view_matrix.M[3][0] / grid) * grid;
-		camera->viewprojection_matrix = camera->view_matrix * camera->projection_matrix;
-
-		if (!renderedHighShadow) {
-			this->shadow_viewprojection[3] = camera->viewprojection_matrix;
-			renderedHighShadow = true;
-		}
-
-		for (auto& entity : Scene::getInstance()->prefabEntities)
-		{
-			renderer->renderPrefab(entity->model, entity->pPrefab, this->camera);
-		}
-
-		far_directional_shadowmap_updated = true;
-		*/
 	}
 }

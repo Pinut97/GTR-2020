@@ -30,6 +30,7 @@ Renderer::Renderer()
 	use_irradiance = false;
 	use_reflection = true;
 	use_deferred = true;
+	use_volumetric = false;
 
 	show_GBuffers = false;
 	show_ao = false;
@@ -519,6 +520,22 @@ void Renderer::renderDeferred(Camera* camera)
 		reflection_pass->disable();
 	}
 
+	//VOLUMETRIC PASS
+	if (use_volumetric)
+	{
+		Light* sun = Scene::getInstance()->sun;
+		Shader* sh = Shader::Get("volumetric");
+		sh->enable();
+
+		sh->setUniform("u_depth_texture", fbo->depth_texture, 4);
+		sh->setUniform("u_shadow_texture", sun->shadowMap, 5);
+
+		sh->disable();
+
+		quad->render(GL_TRIANGLES);
+	}
+
+	/*****DEBUG OPTIONS **********/
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
 
@@ -632,7 +649,6 @@ void Renderer::renderShadowMap()
 		{
 			glViewport(0, 0, 300, 300);
 			glDisable(GL_BLEND);
-			glEnable(GL_DEPTH_TEST);
 			Shader* shader = Shader::Get("depth");
 			shader->enable();
 			shader->setUniform("u_camera_nearfar",
