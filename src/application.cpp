@@ -20,7 +20,6 @@
 #include <cstdio>
 
 Application* Application::instance = nullptr;
-//Vector4 bg_color(0.5, 0.5, 0.5, 1.0);
 //Vector4 bg_color(1.0, 1.0, 1.0, 1.0);
 Vector4 bg_color(0.5, 0.7, 0.9, 1.0);
 
@@ -262,12 +261,15 @@ void Application::renderDebugGUI(void)
 	ImGui::Checkbox("Ambient Occlusion", &Scene::getInstance()->ambient_occlusion);
 
 	ImGui::Checkbox("Use Deferred", &renderer->use_deferred);
+	ImGui::Checkbox("Use Volumetric", &renderer->use_volumetric);
 
 	ImGui::Checkbox("Show AO", &renderer->show_ao);
 	ImGui::Checkbox("Show GBuffers", &renderer->show_GBuffers);
 	ImGui::Checkbox("Show Irradiance Probes", &renderer->show_irr_probes);
 	ImGui::Checkbox("Show Reflection Probes", &renderer->show_reflection_probes);
 	ImGui::Checkbox("Show Probe Coefficients Texture", &renderer->show_probe_coefficients_texture);
+
+	ImGui::DragFloat("Irradiance factor", &renderer->irr_factor, 0.1f);
 
 	//add info to the debug panel about the camera
 	if (ImGui::TreeNode(camera, "Camera")) {
@@ -316,7 +318,8 @@ void Application::onKeyDown( SDL_KeyboardEvent event )
 		case SDLK_f: camera->center.set(0, 0, 0); camera->updateViewMatrix(); break;
 		case SDLK_F5: Shader::ReloadAll(); break;
 		case SDLK_i: renderer->computeIrradiance(); break;
-		case SDLK_l: renderer->loadIrradiance("irradiance.bin"); renderer->use_irradiance = true; break;
+		case SDLK_l: renderer->loadIrradiance("irradiance.bin"); renderer->use_irradiance = !renderer->use_irradiance; break;
+		case SDLK_v: renderer->use_volumetric = !renderer->use_volumetric; break;
 	}
 }
 

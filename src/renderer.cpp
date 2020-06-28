@@ -37,6 +37,7 @@ Renderer::Renderer()
 	show_deferred = true;
 	show_irr_probes = false;
 	show_irradiance = false;
+	show_reflection_probes = false;
 	show_probe_coefficients_texture = false;
 
 	fbo = nullptr;
@@ -52,6 +53,7 @@ Renderer::Renderer()
 	irr_end_pos = Vector3(400, 250, 130);
 	irr_dim = Vector3(8, 6, 12);
 	irr_num_probes = irr_dim.x * irr_dim.y * irr_dim.z;
+	irr_factor = 0.20f;
 
 	irr_delta = (irr_end_pos - irr_start_pos);
 	irr_delta.x /= irr_dim.x - 1;
@@ -398,16 +400,16 @@ void Renderer::renderDeferred(Camera* camera)
 			second_pass->setUniform("u_ao_texture", Texture::getWhiteTexture(), 4);
 		}
 
-
+		//IRRADIANCE PASS
 		second_pass->setUniform("u_user_irr", use_irradiance);
 		if(use_irradiance)
 		{
-			//irradiance pass
 			second_pass->setUniform("u_irr_texture", probes_texture, 5);
 			second_pass->setUniform("u_irr_start", irr_start_pos);
 			second_pass->setUniform("u_irr_end", irr_end_pos);
 			second_pass->setUniform("u_irr_delta", irr_delta);
 			second_pass->setUniform("u_irr_dims", irr_dim);
+			second_pass->setUniform("u_irr_factor", irr_factor);
 		}
 
 		//lights pass
@@ -523,16 +525,35 @@ void Renderer::renderDeferred(Camera* camera)
 	//VOLUMETRIC PASS
 	if (use_volumetric)
 	{
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDisable(GL_DEPTH_TEST);
+
 		Light* sun = Scene::getInstance()->sun;
 		Shader* sh = Shader::Get("volumetric");
 		sh->enable();
 
 		sh->setUniform("u_depth_texture", fbo->depth_texture, 4);
-		sh->setUniform("u_shadow_texture", sun->shadowMap, 5);
+		sh->setUniform("u_shadow_map", sun->shadowMap, 5);
+
+		sh->setUniform("u_light_color", sun->color );
+		sh->setUniform("u_light_bias", sun->bias );
+		sh->setUniform("u_is_cascade", sun->is_cascade);
+		sh->setUniform("u_light_type", sun->light_type);
+		if (sun->light_type == lightType::SPOT || !sun->is_cascade)
+			sh->setUniform("u_shadow_viewprojection", sun->camera->viewprojection_matrix);
+		else if (sun->light_type == lightType::DIRECTIONAL && sun->is_cascade)
+			sh->setMatrix44Array("u_shadow_viewprojection_array", sun->shadow_viewprojection, 4);
+
+		sh->setUniform("u_light_bias", sun->bias );
+		sh->setUniform("u_iRes", Vector2(1.0 / (float)width, 1.0 / (float)height));
+		sh->setUniform("u_camera_pos", camera->eye);
+		sh->setUniform("u_inverse_viewprojection", inverse_matrix);
+
+		quad->render(GL_TRIANGLES);
 
 		sh->disable();
 
-		quad->render(GL_TRIANGLES);
 	}
 
 	/*****DEBUG OPTIONS **********/

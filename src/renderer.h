@@ -73,6 +73,7 @@ namespace GTR {
 		Vector3 irr_dim;
 		Vector3 irr_delta;
 		int irr_num_probes;
+		float irr_factor;
 
 		Renderer();
 
