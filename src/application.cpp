@@ -250,7 +250,7 @@ void Application::renderDebugGUI(void)
 {
 #ifndef SKIP_IMGUI //to block this code from compiling if we want
 
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 
 	//System stats
 	ImGui::Text(getGPUStats().c_str());					   // Display some text (you can use a format strings too)
